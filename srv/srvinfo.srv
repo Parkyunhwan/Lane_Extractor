@@ -1,0 +1,5 @@
+float32 rad
+float64 minIntensity
+float64 maxIntensity
+---
+int64 num
