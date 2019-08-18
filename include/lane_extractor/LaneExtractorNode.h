@@ -2,6 +2,7 @@
 #include <sensor_msgs/PointCloud.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <lane_extractor/LaneExtractor.h>
+#include <pcl/common/centroid.h>
 // #include <tf2_ros/transform_broadcaster.h>
 namespace lane_extractor
 {

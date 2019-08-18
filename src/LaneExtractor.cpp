@@ -94,7 +94,7 @@ namespace lane_extractor
         
         /////////////////////////////////search
         while(!ndt_pose.empty()){
-            set_searchPoint(); // search point ÏÑ§Ï†ï
+            set_searchPoint(); // search point ?Ñ§?†ï
             RadiusSearch(1);
             RadiusSearch(2);
             RadiusSearch(3);
@@ -124,10 +124,11 @@ namespace lane_extractor
 
         // pcl::ExtractIndices<pcl::PointXYZI> extract;
         // extract.setInputCloud(cp.cloud);
-         //kdtreeÏóê cloud ÏÑ§Ï†ï
+         //kdtree?óê cloud ?Ñ§?†ï
             std::vector<int> pointIdxRadiusSearch;
             std::vector<float> pointRadiusSquaredDistance;
-                if( kdtree.radiusSearch(cp.searchPoint[SearchNum], cp.searchinfo.radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) //ÌïòÎÇòÎùºÎèÑ searchÎêúÍ≤ΩÏö∞
+            pcl::CentroidPoint<pcl::PointXYZI> centroidpoint;
+                if( kdtree.radiusSearch(cp.searchPoint[SearchNum], cp.searchinfo.radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) //?ïò?Çò?ùº?èÑ search?êúÍ≤ΩÏö∞
                 {
                     //  pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
                         int k=0;
@@ -138,11 +139,16 @@ namespace lane_extractor
                         //    std::cout << "min_intensity : "<< cp.searchinfo.min_intensity << std::endl;
                            if((cp.cloud->points[pointIdxRadiusSearch[i]].intensity > cp.searchinfo.min_intensity) )//&& (cp.cloud->points[pointIdxRadiusSearch[i]].intensity < cp.searchinfo.max_intensity)
                               {
-                                 cp.Intesity_Cloud->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
+                                 //cp.Intesity_Cloud->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
+                                 centroidpoint.add(cp.cloud->points[ pointIdxRadiusSearch[i]]);
                                 k++;//  inliers->indices.push_back(pointIdxRadiusSearch[i]);
                               }
                               
                        }
+                       pcl::PointXYZI point;
+                       centroidpoint.get(point);
+                       cp.Intesity_Cloud->points.push_back(point);
+                        std::cout << "---centroid point---   "<< point << std::endl;
                         std::cout << "---intensity size---   "<< k << std::endl;
                         std::cout << "---Intensity Cloud size---   "<< cp.Intesity_Cloud->points.size() << std::endl;
 
@@ -182,6 +188,19 @@ namespace lane_extractor
         tf::Vector3 poseT( ndt_pose.front().position.x,  ndt_pose.front().position.y,  ndt_pose.front().position.z);
         tf::Quaternion poseQ( ndt_pose.front().orientation.x, ndt_pose.front().orientation.y, ndt_pose.front().orientation.z, ndt_pose.front().orientation.w);
         tf::Transform poseTransform(poseQ,poseT);
+
+        
+        ////
+        if(i>1){
+            double yaw = ToEulerAngles(poseQ);
+            double yaw_degrees = yaw * 180.0 / M_PI; // conversion to degrees
+            if( yaw_degrees < 0 ) yaw_degrees += 360.0; // convert negative to positive angles
+            tf::Quaternion QuaternionDifference (last_pose.getRotation()-poseTransform.getRotation());
+            float angle = QuaternionDifference.getAngle();
+            std::cout << "yaw degree : " << yaw_degrees << std::endl;
+            std::cout << "yaw : " << yaw << std::endl;
+        }
+
 
         //left_search
         tf::Vector3 leftT(0.0, 1.7, 0.0);
@@ -240,6 +259,7 @@ namespace lane_extractor
     cp.searchPoint[4].x = final_RRtransform.getOrigin().getX();
     cp.searchPoint[4].y = final_RRtransform.getOrigin().getY();
     cp.searchPoint[4].z = final_RRtransform.getOrigin().getZ();
+    last_pose = poseTransform;
     ndt_pose.pop();
 
     std::cout << "search num -> "<< i << std::endl;
@@ -247,14 +267,10 @@ namespace lane_extractor
     std::cout << cp.searchPoint[0].x << "  "
               << cp.searchPoint[0].y << "  "
               << cp.searchPoint[0].z << " end \n";
-    std::cout << "left point -> "<< i << std::endl;
-    std::cout << cp.searchPoint[1].x << "  "
-              << cp.searchPoint[1].y << "  "
-              << cp.searchPoint[1].z << " end \n";
     std::cout << "right point -> "<< i << std::endl;
     std::cout << cp.searchPoint[2].x << "  "
               << cp.searchPoint[2].y << "  "
-              << cp.searchPoint[2].z << " end \n";
+              << cp.searchPoint[2].z << " end \n";    
     i++;
     }
 
@@ -298,6 +314,53 @@ namespace lane_extractor
 
       ROS_INFO("tfTransform_success..");
     }
+
+    double LaneExtractor::ToEulerAngles(tf::Quaternion q)
+    {
+    //EulerAngles angles;
+    double yaw;
+
+        // roll (x-axis rotation)
+        // double sinr_cosp = +2.0 * (q.w * q.x + q.y * q.z);
+        // double cosr_cosp = +1.0 - 2.0 * (q.x * q.x + q.y * q.y);
+        // angles.roll = atan2(sinr_cosp, cosr_cosp);
+
+        // // pitch (y-axis rotation)
+        // double sinp = +2.0 * (q.w * q.y - q.z * q.x);
+        // if (fabs(sinp) >= 1)
+        //     angles.pitch = copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+        // else
+        //     angles.pitch = asin(sinp);
+
+        // yaw (z-axis rotation)
+        double siny_cosp = +2.0 * (q.w() * q.z() + q.x() * q.y());
+        double cosy_cosp = +1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z());  
+        yaw = atan2(siny_cosp, cosy_cosp);
+
+    return yaw;//angles;
+    }
+
+
+//     Vector3f LaneExtractor::toYawPitchRoll(const Eigen::Quaternionf& q)
+// {
+//     Vector3f retVector;
+
+//     const auto x = q.y();
+//     const auto y = q.z();
+//     const auto z = q.x();
+//     const auto w = q.w();
+
+//     retVector[2] = atan2(2.0 * (y * z + w * x), w * w - x * x - y * y + z * z);
+//     retVector[1] = asin(-2.0 * (x * z - w * y));
+//     retVector[0] = atan2(2.0 * (x * y + w * z), w * w + x * x - y * y - z * z);
+
+// #if 1
+//     retVector[0] = (retVector[0] * (180 / M_PI));
+//     retVector[1] = (retVector[1] * (180 / M_PI))*-1;
+//     retVector[2] = retVector[2] * (180 / M_PI);
+// #endif
+//     return retVector;
+// }
 
 
     

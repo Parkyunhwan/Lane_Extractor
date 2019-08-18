@@ -10,6 +10,7 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 #include <lane_extractor/srvinfo.h>
+#include <pcl/common/centroid.h>
 #include <queue>
 
 
@@ -28,10 +29,13 @@ class LaneExtractor
         void tfTransform(const geometry_msgs::PoseStampedConstPtr& ptr);
         void RadiusSearch(int SearchNum);
         void set_searchPoint();
+        double ToEulerAngles(tf::Quaternion q);
+        // Vector3f toYawPitchRoll(const Eigen::Quaternionf& q);
 
         CloudProcessing cp;
         geometry_msgs::Pose _pose;
         std::queue<geometry_msgs::Pose> ndt_pose;
+        tf::Transform last_pose;
 };
 
 

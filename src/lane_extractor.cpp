@@ -12,7 +12,7 @@ int main(int argc, char** argv)
   }
   else{
     std::string str;
-    nh.setParam("file_path","/home/autoware/shared_dir/20190420_kcity_0.2.pcd");
+    nh.setParam("file_path","/home/autoware/Autoware/ros/test450.pcd");
   }
     
     
