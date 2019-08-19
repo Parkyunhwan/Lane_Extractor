@@ -43,6 +43,7 @@ class LaneExtractor
         tf::Transform last_pose;
         int rot;
         double tan_yaw;
+        pcl::PointXYZI save_point;
 };
 
 

@@ -133,7 +133,7 @@ namespace lane_extractor
             std::vector<int> pointIdxRadiusSearch;
             std::vector<float> pointRadiusSquaredDistance;
             pcl::CentroidPoint<pcl::PointXYZI> centroidpoint;
-            int chance=5;
+            int chance=4;
                 if( kdtree.radiusSearch(cp.searchPoint[SearchNum], cp.searchinfo.radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) //?•˜?‚˜?¼?„ search?œê²½ìš°
                 {
                     //  pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
@@ -147,12 +147,12 @@ namespace lane_extractor
                               {
                                  cp.cloud_filtered->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
                                  centroidpoint.add(cp.cloud->points[ pointIdxRadiusSearch[i]]);
+                                 
+                                if(SearchNum==3 || SearchNum==4){
                                  Eigen::Vector2f poseP(cp.searchPoint[0].x,cp.searchPoint[0].y);
                                  Eigen::Vector2f targetP(cp.cloud->points[ pointIdxRadiusSearch[i]].x, cp.cloud->points[ pointIdxRadiusSearch[i]].y);
                                  double distance = getPointToDistance(poseP, tan_yaw, targetP);
-
-                                if(SearchNum==3 || SearchNum==4){
-                                 if(distance<4.8f || distance>5.4f) chance--;
+                                 if(distance<4.9f || distance>5.3f) chance--;
                                  if(chance==0) break;
                                 }
                                  k++;//  inliers->indices.push_back(pointIdxRadiusSearch[i]);
@@ -163,16 +163,20 @@ namespace lane_extractor
                        centroidpoint.get(point);
                         if(chance!=0)
                             cp.Intesity_Cloud->points.push_back(point);
+                        else if( (SearchNum==3 || SearchNum==4) && (centroidpoint.getSize() <= 2 || fabs(point.z-save_point.z) > 0.1))
+                            cp.Intesity_Cloud->points.pop_back();
                         //std::cout << "---centroid point---   "<< point << std::endl;
                         std::cout << "---intensity size---   "<< k << std::endl;
-                        std::cout << "---Intensity Cloud size---   "<< cp.Intesity_Cloud->points.size() << std::endl;
+                        std::cout << "---Intensity Cloud size---   "<<  cp.cloud_filtered->points.size() << std::endl;
 
                     //    extract.setIndices(inliers);
                     //    extract.setNegative(true);
                     //    extract.filter(*cp.cloud);
                     //    inliers->indices.clear();
                     std::cout << "---search size---   "<< pointIdxRadiusSearch.size() << std::endl << std::endl;
+                    save_point = point;
                 }
+               
     }
 
 

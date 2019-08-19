@@ -11,6 +11,7 @@ namespace lane_extractor
 
         map_pub = nh.advertise<sensor_msgs::PointCloud2> ("Point_map", 10);
         lane_pub = nh.advertise<sensor_msgs::PointCloud2> ("lane_pub", 10);
+        cloud_filtered_pub = nh.advertise<sensor_msgs::PointCloud2> ("cloud_filtered_pub", 10);
         marker_pub = nh.advertise<visualization_msgs::Marker>("visualization_marker", 1);
 
         nh.getParam("/file_path", file_path);
@@ -81,8 +82,8 @@ namespace lane_extractor
 
     void CloudProcessing::cloud_filtered_publish(){
                 pcl::toROSMsg(*cloud_filtered, cloud_filtered_msg);
-                Intensity_msg.header.frame_id="map";
-                lane_pub.publish(cloud_filtered_msg);
+                cloud_filtered_msg.header.frame_id="map";
+                cloud_filtered_pub.publish(cloud_filtered_msg);
     }
 
     void CloudProcessing::marker_publish(tf::Transform &pose){
