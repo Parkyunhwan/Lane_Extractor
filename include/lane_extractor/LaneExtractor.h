@@ -30,12 +30,19 @@ class LaneExtractor
         void RadiusSearch(int SearchNum);
         void set_searchPoint();
         double ToEulerAngles(tf::Quaternion q);
-        // Vector3f toYawPitchRoll(const Eigen::Quaternionf& q);
-
+        double pointAndLineDistance2D (const Eigen::Vector2f &point_arg, const Eigen::Vector3d &line_arg);
+        double getPointToDistance(const Eigen::Vector2f &poseP, const double &yaw, const Eigen::Vector2f &targetP );
+        double getSlope (const double &dir_arg);
+        bool getStraightLineEquation2D (const Eigen::Vector2f &point_arg,
+                                                                const double &slope_arg,
+                                                                Eigen::Vector3d &ret_line_arg);
+        double getDeviation (const Eigen::Vector2f &start_pt, const Eigen::Vector2f &candidate_pt, const Eigen::Vector3d &line_coef);
         CloudProcessing cp;
         geometry_msgs::Pose _pose;
         std::queue<geometry_msgs::Pose> ndt_pose;
         tf::Transform last_pose;
+        int rot;
+        double tan_yaw;
 };
 
 

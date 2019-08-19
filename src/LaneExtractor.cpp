@@ -100,6 +100,7 @@ namespace lane_extractor
             RadiusSearch(3);
             RadiusSearch(4);
             cp.lane_publish();
+            cp.cloud_filtered_publish();
         }
 
                 std::cout << "Ridius Search Done.. "<< std::endl;
@@ -112,9 +113,13 @@ namespace lane_extractor
             return;
         }
         if(SearchNum==1){
+            // if(rot==1)
+            //     cp.searchinfo.radius = cp.searchinfo.radius*2;
+            
             std::cout << "left_lane search.." <<std::endl;
         }
         else if(SearchNum==2){
+            // if(rot==2) cp.searchinfo.radius = cp.searchinfo.radius*2; 
             std::cout << "right_lane search.." <<std::endl;
         }
 
@@ -128,6 +133,7 @@ namespace lane_extractor
             std::vector<int> pointIdxRadiusSearch;
             std::vector<float> pointRadiusSquaredDistance;
             pcl::CentroidPoint<pcl::PointXYZI> centroidpoint;
+            int chance=5;
                 if( kdtree.radiusSearch(cp.searchPoint[SearchNum], cp.searchinfo.radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) //?ïò?Çò?ùº?èÑ search?êúÍ≤ΩÏö∞
                 {
                     //  pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
@@ -139,16 +145,25 @@ namespace lane_extractor
                         //    std::cout << "min_intensity : "<< cp.searchinfo.min_intensity << std::endl;
                            if((cp.cloud->points[pointIdxRadiusSearch[i]].intensity > cp.searchinfo.min_intensity) )//&& (cp.cloud->points[pointIdxRadiusSearch[i]].intensity < cp.searchinfo.max_intensity)
                               {
-                                 //cp.Intesity_Cloud->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
+                                 cp.cloud_filtered->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
                                  centroidpoint.add(cp.cloud->points[ pointIdxRadiusSearch[i]]);
-                                k++;//  inliers->indices.push_back(pointIdxRadiusSearch[i]);
+                                 Eigen::Vector2f poseP(cp.searchPoint[0].x,cp.searchPoint[0].y);
+                                 Eigen::Vector2f targetP(cp.cloud->points[ pointIdxRadiusSearch[i]].x, cp.cloud->points[ pointIdxRadiusSearch[i]].y);
+                                 double distance = getPointToDistance(poseP, tan_yaw, targetP);
+
+                                if(SearchNum==3 || SearchNum==4){
+                                 if(distance<4.8f || distance>5.4f) chance--;
+                                 if(chance==0) break;
+                                }
+                                 k++;//  inliers->indices.push_back(pointIdxRadiusSearch[i]);
                               }
                               
                        }
                        pcl::PointXYZI point;
                        centroidpoint.get(point);
-                       cp.Intesity_Cloud->points.push_back(point);
-                        std::cout << "---centroid point---   "<< point << std::endl;
+                        if(chance!=0)
+                            cp.Intesity_Cloud->points.push_back(point);
+                        //std::cout << "---centroid point---   "<< point << std::endl;
                         std::cout << "---intensity size---   "<< k << std::endl;
                         std::cout << "---Intensity Cloud size---   "<< cp.Intesity_Cloud->points.size() << std::endl;
 
@@ -190,17 +205,38 @@ namespace lane_extractor
         tf::Transform poseTransform(poseQ,poseT);
 
         
+        tan_yaw = ToEulerAngles(poseQ);
         ////
-        if(i>1){
-            double yaw = ToEulerAngles(poseQ);
-            double yaw_degrees = yaw * 180.0 / M_PI; // conversion to degrees
-            if( yaw_degrees < 0 ) yaw_degrees += 360.0; // convert negative to positive angles
-            tf::Quaternion QuaternionDifference (last_pose.getRotation()-poseTransform.getRotation());
-            float angle = QuaternionDifference.getAngle();
-            std::cout << "yaw degree : " << yaw_degrees << std::endl;
-            std::cout << "yaw : " << yaw << std::endl;
-        }
+        // if(i==0)last_pose = poseTransform;
+        rot=0;
+        if(i>0){
+            
+            double yaw1 = ToEulerAngles(poseQ);
+            double yaw_degrees1 = yaw1 * 180.0 / M_PI; // conversion to degrees
+            if( yaw_degrees1 < 0 ) yaw_degrees1 += 360.0; // convert negative to positive angles
+            double yaw2 = ToEulerAngles(last_pose.getRotation());
+            double yaw_degrees2 = yaw2 * 180.0 / M_PI; // conversion to degrees
+            if( yaw_degrees2 < 0 ) yaw_degrees2 += 360.0; // convert negative to positive angles
+ 
+            double yaw_diff = fabs(yaw_degrees1 - yaw_degrees2);
+            if(yaw_diff > 180) yaw_diff = 360 - yaw_diff;
+            
+            tf::TransformBroadcaster broadcaster;
+            if(yaw_diff > 10)  
+            {
+                broadcaster.sendTransform(tf::StampedTransform(poseTransform,ros::Time::now(),
+                    "map", "Angles"));
+            if(yaw_degrees2 > yaw_degrees1 ) rot=1; //right
+            else if (yaw_degrees2 < yaw_degrees1) rot=2; //left
 
+            }
+
+            std::cout << "yaw degree1 : " << yaw_degrees1 << std::endl;
+            std::cout << "yaw degree2 : " << yaw_degrees2 << std::endl;
+            std::cout << "yaw_diff : " << yaw_diff << std::endl;
+            
+        }
+        last_pose = poseTransform;
 
         //left_search
         tf::Vector3 leftT(0.0, 1.7, 0.0);
@@ -259,7 +295,7 @@ namespace lane_extractor
     cp.searchPoint[4].x = final_RRtransform.getOrigin().getX();
     cp.searchPoint[4].y = final_RRtransform.getOrigin().getY();
     cp.searchPoint[4].z = final_RRtransform.getOrigin().getZ();
-    last_pose = poseTransform;
+    
     ndt_pose.pop();
 
     std::cout << "search num -> "<< i << std::endl;
@@ -341,26 +377,81 @@ namespace lane_extractor
     }
 
 
-//     Vector3f LaneExtractor::toYawPitchRoll(const Eigen::Quaternionf& q)
-// {
-//     Vector3f retVector;
+    double LaneExtractor::getPointToDistance(const Eigen::Vector2f &poseP, const double &yaw, const Eigen::Vector2f &targetP )
+    {
+        Eigen::Vector3d ret_line;
+        getStraightLineEquation2D(poseP,getSlope(yaw),ret_line);
+        return getDeviation(poseP,targetP,ret_line); 
+    }
 
-//     const auto x = q.y();
-//     const auto y = q.z();
-//     const auto z = q.x();
-//     const auto w = q.w();
 
-//     retVector[2] = atan2(2.0 * (y * z + w * x), w * w - x * x - y * y + z * z);
-//     retVector[1] = asin(-2.0 * (x * z - w * y));
-//     retVector[0] = atan2(2.0 * (x * y + w * z), w * w + x * x - y * y - z * z);
+    double LaneExtractor::getSlope (const double &dir_arg)
+    {
+    double ret_slope;
 
-// #if 1
-//     retVector[0] = (retVector[0] * (180 / M_PI));
-//     retVector[1] = (retVector[1] * (180 / M_PI))*-1;
-//     retVector[2] = retVector[2] * (180 / M_PI);
-// #endif
-//     return retVector;
-// }
+    const float min_value = std::numeric_limits<double>::epsilon ();
+    double theta = dir_arg;//getApproxTheta (dir_arg);
+
+
+    if ( std::abs (theta - M_PI/2) < min_value || 
+        std::abs (theta - 3*M_PI/2) < min_value )
+    {
+        ret_slope = std::numeric_limits<double>::max();
+    }
+    else
+        ret_slope = tan (theta);
+
+    return ret_slope;
+    }
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    bool LaneExtractor::getStraightLineEquation2D (const Eigen::Vector2f &point_arg,
+                                                            const double &slope_arg,
+                                                            Eigen::Vector3d &ret_line_arg)
+    {
+    
+    double min_value = std::numeric_limits<double>::epsilon();
+    
+    if (std::abs (slope_arg - std::numeric_limits<double>::max()) > min_value)
+    {
+        ret_line_arg = Eigen::Vector3d (slope_arg, -1, -slope_arg * point_arg.x() + point_arg.y());
+        return true;
+    }
+    else 
+    { 
+        std::cout << "NO LINE" << std::endl;
+        ret_line_arg = Eigen::Vector3d (std::numeric_limits< double >::max(), 
+                                        std::numeric_limits< double >::max(), 
+                                        std::numeric_limits< double >::max());
+        return false;
+    }
+    }
+
+    double LaneExtractor::pointAndLineDistance2D (const Eigen::Vector2f &point_arg, const Eigen::Vector3d &line_arg)
+    {
+    /*
+    if (std::abs (point_arg(0) - std::numeric_limits<double>::max()) < std::numeric_limits<double>::epsilon())
+    return std::numeric_limits<double>::max();
+    else  
+    */
+        return (std::abs (line_arg(0) * point_arg.x() + line_arg(1) * point_arg.y() + line_arg(2))) / 
+                sqrt (pow (line_arg(0), 2) + pow (line_arg(1), 2));
+    }
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    double LaneExtractor::getDeviation (const Eigen::Vector2f &start_pt, const Eigen::Vector2f &candidate_pt, const Eigen::Vector3d &line_coef)
+    {
+    double candidate_deviation;
+
+    if (std::abs (line_coef (0) - std::numeric_limits<double>::max ()) < std::numeric_limits<double>::epsilon ())
+        candidate_deviation = std::abs (start_pt.x() - candidate_pt.x());
+    else
+        candidate_deviation = pointAndLineDistance2D (Eigen::Vector2f (candidate_pt.x(), candidate_pt.y()), line_coef);  
+
+    return candidate_deviation;
+    }
 
 
     

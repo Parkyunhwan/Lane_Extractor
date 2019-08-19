@@ -1,4 +1,6 @@
 #include <ros/ros.h>
+#include <visualization_msgs/Marker.h>
+#include <tf/transform_broadcaster.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -25,9 +27,11 @@ namespace lane_extractor
         //pcl::PointCloud<pcl::Normal>::Ptr cloud_normals;
             sensor_msgs::PointCloud2 cloud_msg;
             sensor_msgs::PointCloud2 Intensity_msg;
-
+            sensor_msgs::PointCloud2 cloud_filtered_msg;
             ros::Publisher map_pub;
             ros::Publisher lane_pub;
+            ros::Publisher cloud_filtered_pub;
+            ros::Publisher marker_pub;
 
             ros::NodeHandle nh;
 
@@ -47,6 +51,8 @@ namespace lane_extractor
 
             void map_publish();
             void lane_publish();
+            void cloud_filtered_publish();
+            void marker_publish(tf::Transform &pose);
             // void lane_exclusion_publish();
 
     };
