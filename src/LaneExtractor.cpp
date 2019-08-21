@@ -64,7 +64,7 @@ namespace lane_extractor
         tf::StampedTransform(final_transform,ros::Time::now(),
         "map", "right_link"));
 
-        if(i%10==0)
+        if(i%8==0)
         {
         geometry_msgs::Pose current_pose = ptr->pose;
         //current_pose.position.z = 0.0;
@@ -115,7 +115,6 @@ namespace lane_extractor
         if(SearchNum==1){
             // if(rot==1)
             //     cp.searchinfo.radius = cp.searchinfo.radius*2;
-            
             std::cout << "left_lane search.." <<std::endl;
         }
         else if(SearchNum==2){
@@ -133,6 +132,7 @@ namespace lane_extractor
             std::vector<int> pointIdxRadiusSearch;
             std::vector<float> pointRadiusSquaredDistance;
             pcl::CentroidPoint<pcl::PointXYZI> centroidpoint;
+            std::vector<pcl::PointXYZI> s_point;
             int chance=4;
                 if( kdtree.radiusSearch(cp.searchPoint[SearchNum], cp.searchinfo.radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) //?•˜?‚˜?¼?„ search?œê²½ìš°
                 {
@@ -147,23 +147,37 @@ namespace lane_extractor
                               {
                                  cp.cloud_filtered->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
                                  centroidpoint.add(cp.cloud->points[ pointIdxRadiusSearch[i]]);
-                                 
-                                if(SearchNum==3 || SearchNum==4){
-                                 Eigen::Vector2f poseP(cp.searchPoint[0].x,cp.searchPoint[0].y);
-                                 Eigen::Vector2f targetP(cp.cloud->points[ pointIdxRadiusSearch[i]].x, cp.cloud->points[ pointIdxRadiusSearch[i]].y);
-                                 double distance = getPointToDistance(poseP, tan_yaw, targetP);
-                                 if(distance<4.9f || distance>5.3f) chance--;
-                                 if(chance==0) break;
-                                }
+                                 s_point.push_back(cp.cloud->points[ pointIdxRadiusSearch[i]]);
+                                // if(SearchNum==3 || SearchNum==4){
+                                //  Eigen::Vector2f poseP(cp.searchPoint[0].x,cp.searchPoint[0].y);
+                                //  Eigen::Vector2f targetP(cp.cloud->points[ pointIdxRadiusSearch[i]].x, cp.cloud->points[ pointIdxRadiusSearch[i]].y);
+                                //  double distance = getPointToDistance(poseP, tan_yaw, targetP);
+                                //  if(distance<4.75f || distance>5.45f) chance--;
+                                //  if(chance==0) break;
+                                // }
                                  k++;//  inliers->indices.push_back(pointIdxRadiusSearch[i]);
-                              }
-                              
+                              }  
                        }
+
                        pcl::PointXYZI point;
                        centroidpoint.get(point);
+
+                                if(SearchNum==3 || SearchNum==4){
+                                    while(!s_point.empty()){
+                                        Eigen::Vector2f poseP(point.x, point.y);
+                                        pcl::PointXYZI target_p = s_point.back();
+                                        s_point.pop_back();
+                                        Eigen::Vector2f targetP(target_p.x, target_p.y);
+                                        double distance = getPointToDistance(poseP, tan_yaw, targetP);
+                                        if(distance>0.15f) chance--;
+                                        if(chance==0) break;
+                                    }
+                                    s_point.clear();
+                                }
+
                         if(chance!=0)
                             cp.Intesity_Cloud->points.push_back(point);
-                        else if( (SearchNum==3 || SearchNum==4) && (centroidpoint.getSize() <= 2 || fabs(point.z-save_point.z) > 0.1))
+                        if( (SearchNum==3 || SearchNum==4) && (chance!=0) && (centroidpoint.getSize() <= 2 ||  fabs(point.z-save_point.z) > 0.1))// || fabs(point.z-save_point.z) > 0.1
                             cp.Intesity_Cloud->points.pop_back();
                         //std::cout << "---centroid point---   "<< point << std::endl;
                         std::cout << "---intensity size---   "<< k << std::endl;
