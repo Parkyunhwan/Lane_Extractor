@@ -98,7 +98,7 @@ namespace lane_extractor
         cp.searchinfo.max_intensity = req.maxIntensity;
         /////////////////////////////////search
         while(!ndt_pose.empty()){
-            setSearchEv(); // search point ?„¤? •
+            setSearchEv(); // search point
             RadiusSearch(LEFT);
             RadiusSearch(RIGHT);
             RadiusSearch(MULTILEFT);
@@ -111,38 +111,45 @@ namespace lane_extractor
     }
 
     void LaneExtractor::RadiusSearch(int SearchLine)
-    {
-            
-            
+    {     
             std::vector<pcl::PointXYZI> s_point;
             int chance=4;
-            pcl::PointXYZI point;
-            int size = lineRadiusSearch(point,s_point,SearchLine);
-                if( size > 0 ){
-                                if(SearchLine==3 || SearchLine==4){
-                                    while(!s_point.empty()){
-                                        Eigen::Vector2f poseP(point.x, point.y);
-                                        pcl::PointXYZI target_p = s_point.back();
-                                        s_point.pop_back();
-                                        Eigen::Vector2f targetP(target_p.x, target_p.y);
-                                        double distance = getPointToDistance(poseP, tan_yaw, targetP);
-                                        if(distance>0.15f) chance--;
-                                        if(chance==0) break;
-                                    }
-                                    s_point.clear();
-                                }
-                        if(chance!=0)
-                            cp.Intesity_Cloud->points.push_back(point);
-                        if( (SearchLine==3 || SearchLine==4) && (chance!=0) && ((size <= 2) ||  fabs(point.z-save_point.z) > 0.1 ) )// || fabs(point.z-save_point.z) > 0.1
-                            cp.Intesity_Cloud->points.pop_back();
-                        //std::cout << "---centroid point---   "<< point << std::endl;
-                        // std::cout << "---intensity size---   "<< k << std::endl;
-                        // std::cout << "---Intensity Cloud size---   "<<  cp.cloud_filtered->points.size() << std::endl;
-                    //std::cout << "---search size---   "<< pointIdxRadiusSearch.size() << std::endl << std::endl;
-                    save_point = point;
+            pcl::PointXYZI cetroidpoint;
+            if(rotation_direction==LEFT||rotation_direction==RIGHT){
+                chance = 20;
+                cp.searchinfo.radius = cp.searchinfo.radius + 1.0f;
+                cp.searchinfo.min_intensity = cp.searchinfo.min_intensity;
+            }
+            int size = lineRadiusSearch(cetroidpoint,s_point,SearchLine);
+                if( size > 0 )
+                {
+                    if(SearchLine==3 || SearchLine==4){
+                        while(!s_point.empty()){
+                            Eigen::Vector2f poseP(cetroidpoint.x, cetroidpoint.y);
+                            pcl::PointXYZI target_p = s_point.back();
+                            s_point.pop_back();
+                            Eigen::Vector2f targetP(target_p.x, target_p.y);
+                            double distance = getPointToDistance(poseP, tan_yaw, targetP);
+                            if(distance>0.2f) chance--;
+                            if(chance==0) break;
+
+                        }
+                        s_point.clear();
                 }
+            if(chance!=0)
+                cp.Intesity_Cloud->points.push_back(cetroidpoint);
+                if( (SearchLine==3 || SearchLine==4) && (chance!=0) && ((size <= 2) ||  fabs(cetroidpoint.z-save_point.z) > 0.1 ) )// || fabs(point.z-save_point.z) > 0.1
+                    cp.Intesity_Cloud->points.pop_back();
+                        //std::cout << "---centroid point---   "<< point << std::endl;
+                    //std::cout << "---search size---   "<< pointIdxRadiusSearch.size() << std::endl << std::endl;
+                    save_point = cetroidpoint;
+                }
+            cp.searchinfo.radius = 0.6;
+            cp.searchinfo.min_intensity = 430;
+            cp.searchinfo.max_intensity = 1700;
                
     }
+
     int LaneExtractor::lineRadiusSearch(pcl::PointXYZI &centerpoint,std::vector<pcl::PointXYZI> &s_point,int SearchLine){
         pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
         std::vector<int> pointIdxRadiusSearch;
@@ -257,12 +264,11 @@ namespace lane_extractor
             tf::StampedTransform(transform,ros::Time::now(),
             from_link, to_link));
     }
-
+    
     double LaneExtractor::ToEulerAngles(tf::Quaternion q)
     {
     //EulerAngles angles;
     double yaw;
-
         // roll (x-axis rotation)
         // double sinr_cosp = +2.0 * (q.w * q.x + q.y * q.z);
         // double cosr_cosp = +1.0 - 2.0 * (q.x * q.x + q.y * q.y);
