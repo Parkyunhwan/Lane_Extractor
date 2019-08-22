@@ -114,11 +114,13 @@ namespace lane_extractor
     {     
             std::vector<pcl::PointXYZI> s_point;
             int chance=4;
+            float z=0.1;
             pcl::PointXYZI cetroidpoint;
             if(rotation_direction==LEFT||rotation_direction==RIGHT){
                 chance = 20;
-                cp.searchinfo.radius = cp.searchinfo.radius + 1.0f;
-                cp.searchinfo.min_intensity = cp.searchinfo.min_intensity;
+                z=1.0;
+                cp.searchinfo.radius = cp.searchinfo.radius + 0.4f;
+                cp.searchinfo.min_intensity = cp.searchinfo.min_intensity+150;
             }
             int size = lineRadiusSearch(cetroidpoint,s_point,SearchLine);
                 if( size > 0 )
@@ -138,7 +140,7 @@ namespace lane_extractor
                 }
             if(chance!=0)
                 cp.Intesity_Cloud->points.push_back(cetroidpoint);
-                if( (SearchLine==3 || SearchLine==4) && (chance!=0) && ((size <= 2) ||  fabs(cetroidpoint.z-save_point.z) > 0.1 ) )// || fabs(point.z-save_point.z) > 0.1
+                if( (SearchLine==3 || SearchLine==4) && (chance!=0) && ((size <= 2) ||  fabs(cetroidpoint.z-save_point.z) > z ) )// || fabs(point.z-save_point.z) > 0.1
                     cp.Intesity_Cloud->points.pop_back();
                         //std::cout << "---centroid point---   "<< point << std::endl;
                     //std::cout << "---search size---   "<< pointIdxRadiusSearch.size() << std::endl << std::endl;
