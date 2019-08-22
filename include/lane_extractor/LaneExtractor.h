@@ -26,22 +26,22 @@ class LaneExtractor
         void ndtPoseCallback(const geometry_msgs::PoseStampedConstPtr& pc);
         bool FindLaneService(lane_extractor::srvinfo::Request  &req, lane_extractor::srvinfo::Response &res);
 
-        void tfTransform(const geometry_msgs::PoseStampedConstPtr& ptr);
+        void tfBroadcaster(const tf::Transform &transform,const std::string &from_link,const std::string &to_link);
         void RadiusSearch(int SearchNum);
-        void set_searchPoint();
+        void setSearchEv();
+        void setSearchPoint(const tf::Transform &tr,const int &line);
         double ToEulerAngles(tf::Quaternion q);
         double pointAndLineDistance2D (const Eigen::Vector2f &point_arg, const Eigen::Vector3d &line_arg);
         double getPointToDistance(const Eigen::Vector2f &poseP, const double &yaw, const Eigen::Vector2f &targetP );
         double getSlope (const double &dir_arg);
-        bool getStraightLineEquation2D (const Eigen::Vector2f &point_arg,
-                                                                const double &slope_arg,
-                                                                Eigen::Vector3d &ret_line_arg);
+        bool getStraightLineEquation2D (const Eigen::Vector2f &point_arg, const double &slope_arg, Eigen::Vector3d &ret_line_arg);
         double getDeviation (const Eigen::Vector2f &start_pt, const Eigen::Vector2f &candidate_pt, const Eigen::Vector3d &line_coef);
+        double calDiffbtQuarternion(const tf::Quaternion &q1,const tf::Quaternion &q2,int &rot_direction);
+        int lineRadiusSearch(pcl::PointXYZI &centerpoint,std::vector<pcl::PointXYZI> &s_point,int searchlane);
         CloudProcessing cp;
         geometry_msgs::Pose _pose;
         std::queue<geometry_msgs::Pose> ndt_pose;
-        tf::Transform last_pose;
-        int rot;
+        int rotation_direction;
         double tan_yaw;
         pcl::PointXYZI save_point;
 };

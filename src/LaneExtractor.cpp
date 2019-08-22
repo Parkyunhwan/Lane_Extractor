@@ -2,6 +2,13 @@
 // #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
+#define CENTER 0
+#define LEFT 1
+#define RIGHT 2
+#define MULTILEFT 3
+#define MULTIRIGHT 4
+
+
 
 namespace lane_extractor
 {
@@ -64,7 +71,7 @@ namespace lane_extractor
         tf::StampedTransform(final_transform,ros::Time::now(),
         "map", "right_link"));
 
-        if(i%8==0)
+        if(i%5==0)
         {
         geometry_msgs::Pose current_pose = ptr->pose;
         //current_pose.position.z = 0.0;
@@ -86,83 +93,33 @@ namespace lane_extractor
     bool LaneExtractor::FindLaneService(lane_extractor::srvinfo::Request  &req,
                                         lane_extractor::srvinfo::Response &res)
     {
-        //setting serachinfo
-        std::cout << "start "<< std::endl;
         cp.searchinfo.radius = req.rad;
         cp.searchinfo.min_intensity = req.minIntensity;
         cp.searchinfo.max_intensity = req.maxIntensity;
-        
         /////////////////////////////////search
         while(!ndt_pose.empty()){
-            set_searchPoint(); // search point ?Ñ§?†ï
-            RadiusSearch(1);
-            RadiusSearch(2);
-            RadiusSearch(3);
-            RadiusSearch(4);
+            setSearchEv(); // search point ?Ñ§?†ï
+            RadiusSearch(LEFT);
+            RadiusSearch(RIGHT);
+            RadiusSearch(MULTILEFT);
+            RadiusSearch(MULTIRIGHT);
             cp.lane_publish();
             cp.cloud_filtered_publish();
         }
-
-                std::cout << "Ridius Search Done.. "<< std::endl;
+        std::cout << "Ridius Search Finish..<Put New Pose Data> "<< std::endl;
         return true;
     }
-    void LaneExtractor::RadiusSearch(int SearchNum)
+
+    void LaneExtractor::RadiusSearch(int SearchLine)
     {
-        if(SearchNum<0 && SearchNum>4){
-            ROS_INFO("SearchNum Error...");
-            return;
-        }
-        if(SearchNum==1){
-            // if(rot==1)
-            //     cp.searchinfo.radius = cp.searchinfo.radius*2;
-            std::cout << "left_lane search.." <<std::endl;
-        }
-        else if(SearchNum==2){
-            // if(rot==2) cp.searchinfo.radius = cp.searchinfo.radius*2; 
-            std::cout << "right_lane search.." <<std::endl;
-        }
-
-
-        pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
-        kdtree.setInputCloud(cp.cloud);
-
-        // pcl::ExtractIndices<pcl::PointXYZI> extract;
-        // extract.setInputCloud(cp.cloud);
-         //kdtree?óê cloud ?Ñ§?†ï
-            std::vector<int> pointIdxRadiusSearch;
-            std::vector<float> pointRadiusSquaredDistance;
-            pcl::CentroidPoint<pcl::PointXYZI> centroidpoint;
+            
+            
             std::vector<pcl::PointXYZI> s_point;
             int chance=4;
-                if( kdtree.radiusSearch(cp.searchPoint[SearchNum], cp.searchinfo.radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) //?ïò?Çò?ùº?èÑ search?êúÍ≤ΩÏö∞
-                {
-                    //  pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
-                        int k=0;
-                        
-                       for(size_t i = 0; i < pointIdxRadiusSearch.size(); ++i)
-                       {
-                        //    std::cout << "intensity : "<< cp.cloud->points[ pointIdxRadiusSearch[i] ].intensity << std::endl;
-                        //    std::cout << "min_intensity : "<< cp.searchinfo.min_intensity << std::endl;
-                           if((cp.cloud->points[pointIdxRadiusSearch[i]].intensity > cp.searchinfo.min_intensity) )//&& (cp.cloud->points[pointIdxRadiusSearch[i]].intensity < cp.searchinfo.max_intensity)
-                              {
-                                 cp.cloud_filtered->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
-                                 centroidpoint.add(cp.cloud->points[ pointIdxRadiusSearch[i]]);
-                                 s_point.push_back(cp.cloud->points[ pointIdxRadiusSearch[i]]);
-                                // if(SearchNum==3 || SearchNum==4){
-                                //  Eigen::Vector2f poseP(cp.searchPoint[0].x,cp.searchPoint[0].y);
-                                //  Eigen::Vector2f targetP(cp.cloud->points[ pointIdxRadiusSearch[i]].x, cp.cloud->points[ pointIdxRadiusSearch[i]].y);
-                                //  double distance = getPointToDistance(poseP, tan_yaw, targetP);
-                                //  if(distance<4.75f || distance>5.45f) chance--;
-                                //  if(chance==0) break;
-                                // }
-                                 k++;//  inliers->indices.push_back(pointIdxRadiusSearch[i]);
-                              }  
-                       }
-
-                       pcl::PointXYZI point;
-                       centroidpoint.get(point);
-
-                                if(SearchNum==3 || SearchNum==4){
+            pcl::PointXYZI point;
+            int size = lineRadiusSearch(point,s_point,SearchLine);
+                if( size > 0 ){
+                                if(SearchLine==3 || SearchLine==4){
                                     while(!s_point.empty()){
                                         Eigen::Vector2f poseP(point.x, point.y);
                                         pcl::PointXYZI target_p = s_point.back();
@@ -174,199 +131,131 @@ namespace lane_extractor
                                     }
                                     s_point.clear();
                                 }
-
                         if(chance!=0)
                             cp.Intesity_Cloud->points.push_back(point);
-                        if( (SearchNum==3 || SearchNum==4) && (chance!=0) && (centroidpoint.getSize() <= 2 ||  fabs(point.z-save_point.z) > 0.1))// || fabs(point.z-save_point.z) > 0.1
+                        if( (SearchLine==3 || SearchLine==4) && (chance!=0) && ((size <= 2) ||  fabs(point.z-save_point.z) > 0.1 ) )// || fabs(point.z-save_point.z) > 0.1
                             cp.Intesity_Cloud->points.pop_back();
                         //std::cout << "---centroid point---   "<< point << std::endl;
-                        std::cout << "---intensity size---   "<< k << std::endl;
-                        std::cout << "---Intensity Cloud size---   "<<  cp.cloud_filtered->points.size() << std::endl;
-
-                    //    extract.setIndices(inliers);
-                    //    extract.setNegative(true);
-                    //    extract.filter(*cp.cloud);
-                    //    inliers->indices.clear();
-                    std::cout << "---search size---   "<< pointIdxRadiusSearch.size() << std::endl << std::endl;
+                        // std::cout << "---intensity size---   "<< k << std::endl;
+                        // std::cout << "---Intensity Cloud size---   "<<  cp.cloud_filtered->points.size() << std::endl;
+                    //std::cout << "---search size---   "<< pointIdxRadiusSearch.size() << std::endl << std::endl;
                     save_point = point;
                 }
                
     }
+    int LaneExtractor::lineRadiusSearch(pcl::PointXYZI &centerpoint,std::vector<pcl::PointXYZI> &s_point,int SearchLine){
+        pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
+        std::vector<int> pointIdxRadiusSearch;
+        std::vector<float> pointRadiusSquaredDistance;
+        kdtree.setInputCloud(cp.cloud);
+        pcl::CentroidPoint<pcl::PointXYZI> centroidpoint;
+        int size = kdtree.radiusSearch(cp.searchPoint[SearchLine], cp.searchinfo.radius, pointIdxRadiusSearch, pointRadiusSquaredDistance);  
+                if(size > 0)
+                {
+                       for(size_t i = 0; i < pointIdxRadiusSearch.size(); ++i)
+                       {
+                           if((cp.cloud->points[pointIdxRadiusSearch[i]].intensity > cp.searchinfo.min_intensity) )//&& (cp.cloud->points[pointIdxRadiusSearch[i]].intensity < cp.searchinfo.max_intensity)
+                              {
+                                 cp.cloud_filtered->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
+                                 centroidpoint.add(cp.cloud->points[ pointIdxRadiusSearch[i]]);
+                                 s_point.push_back(cp.cloud->points[ pointIdxRadiusSearch[i]]);
+                              }  
+                       }
+                       centroidpoint.get(centerpoint);
+                       return size;
+                }
+                else {
+                    ROS_INFO("No point could be found..");
+                    return 0;
+                }
+    }
 
 
-    void LaneExtractor::set_searchPoint()
+    void LaneExtractor::setSearchEv()
     {
-    static int i = 0;
-
-        static tf2_ros::TransformBroadcaster br;
-        geometry_msgs::TransformStamped transformStamped;
-        geometry_msgs::TransformStamped transformMaptoleftlink;
-        
-        //center_search
-        transformStamped.header.stamp = ros::Time::now();
-        transformStamped.header.frame_id = "map";
-        transformStamped.child_frame_id = "center_search";
-        transformStamped.transform.translation.x = ndt_pose.front().position.x;
-        transformStamped.transform.translation.y = ndt_pose.front().position.y;;
-        transformStamped.transform.translation.z = ndt_pose.front().position.z;;
-
-        transformStamped.transform.rotation =  ndt_pose.front().orientation;
-        br.sendTransform( transformStamped); 
-
-        tf::Transform final_Ltransform;
-        tf::Transform final_Rtransform;
-        tf::Transform final_LLtransform;
-        tf::Transform final_RRtransform;
-
+        static int i = 0;
+        static tf::Transform last_pose;
         tf::Vector3 poseT( ndt_pose.front().position.x,  ndt_pose.front().position.y,  ndt_pose.front().position.z);
         tf::Quaternion poseQ( ndt_pose.front().orientation.x, ndt_pose.front().orientation.y, ndt_pose.front().orientation.z, ndt_pose.front().orientation.w);
         tf::Transform poseTransform(poseQ,poseT);
-
+        tfBroadcaster(poseTransform,"map","center_search");
         
         tan_yaw = ToEulerAngles(poseQ);
-        ////
-        // if(i==0)last_pose = poseTransform;
-        rot=0;
-        if(i>0){
-            
-            double yaw1 = ToEulerAngles(poseQ);
+        if(i>0)
+        {
+            double yaw_diff=calDiffbtQuarternion(poseQ,last_pose.getRotation(),rotation_direction);
+            if(yaw_diff > 2.0)  tfBroadcaster(poseTransform,"map","Angle");
+            else rotation_direction=CENTER;
+
+            std::cout << "yaw_diff : " << yaw_diff << std::endl;
+            if(rotation_direction==CENTER)
+            std::cout << "rotation_direction : CENTER" << std::endl;
+            if(rotation_direction==LEFT)
+            std::cout << "rotation_direction : LEFT" << std::endl;
+            else if(rotation_direction==RIGHT)
+            std::cout << "rotation_direction : RIGHT" << std::endl;
+        }
+        last_pose = poseTransform;
+
+        tf::Transform final_Ltransform, final_Rtransform, final_MLtransform, final_MRtransform;
+        //left_search
+        tf::Transform leftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, 1.7, 0.0));
+        final_Ltransform = poseTransform * leftTransform;
+        tfBroadcaster(final_Ltransform,"map","left_search");
+        //right_search
+        tf::Transform rightTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, -1.7, 0.0));
+        final_Rtransform = poseTransform * rightTransform;
+        tfBroadcaster(final_Rtransform,"map","right_search");
+        //Multileft_search     
+        tf::Transform MultileftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, (1.7+3.4), 0.0));
+        final_MLtransform = poseTransform * MultileftTransform;
+        tfBroadcaster(final_MLtransform,"map","Multileft_search");
+        //Multiright_search
+        tf::Transform MultirightTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, (-1.7-3.4), 0.0));
+        final_MRtransform = poseTransform * MultirightTransform;
+        tfBroadcaster(final_MRtransform,"map","Multiright_search");
+
+        setSearchPoint( poseTransform    ,CENTER );
+        setSearchPoint( final_Ltransform ,LEFT );
+        setSearchPoint( final_Rtransform ,RIGHT );
+        setSearchPoint( final_MLtransform,MULTILEFT );
+        setSearchPoint( final_MRtransform,MULTIRIGHT );
+        
+        ndt_pose.pop();
+        i++;
+    }
+
+    double LaneExtractor::calDiffbtQuarternion(const tf::Quaternion &q1,const tf::Quaternion &q2,int &rot_direction)
+    {
+            double yaw1 = ToEulerAngles(q1);
             double yaw_degrees1 = yaw1 * 180.0 / M_PI; // conversion to degrees
             if( yaw_degrees1 < 0 ) yaw_degrees1 += 360.0; // convert negative to positive angles
-            double yaw2 = ToEulerAngles(last_pose.getRotation());
+            double yaw2 = ToEulerAngles(q2);
             double yaw_degrees2 = yaw2 * 180.0 / M_PI; // conversion to degrees
             if( yaw_degrees2 < 0 ) yaw_degrees2 += 360.0; // convert negative to positive angles
  
             double yaw_diff = fabs(yaw_degrees1 - yaw_degrees2);
             if(yaw_diff > 180) yaw_diff = 360 - yaw_diff;
-            
-            tf::TransformBroadcaster broadcaster;
-            if(yaw_diff > 10)  
-            {
-                broadcaster.sendTransform(tf::StampedTransform(poseTransform,ros::Time::now(),
-                    "map", "Angles"));
-            if(yaw_degrees2 > yaw_degrees1 ) rot=1; //right
-            else if (yaw_degrees2 < yaw_degrees1) rot=2; //left
 
-            }
+            if(yaw_degrees2 > yaw_degrees1 ) rot_direction = RIGHT; //right
+            else if (yaw_degrees2 < yaw_degrees1) rot_direction = LEFT; //left
 
-            std::cout << "yaw degree1 : " << yaw_degrees1 << std::endl;
-            std::cout << "yaw degree2 : " << yaw_degrees2 << std::endl;
-            std::cout << "yaw_diff : " << yaw_diff << std::endl;
-            
-        }
-        last_pose = poseTransform;
-
-        //left_search
-        tf::Vector3 leftT(0.0, 1.7, 0.0);
-        tf::Transform leftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,leftT);
-        final_Ltransform = poseTransform * leftTransform;
-
-        tf::TransformBroadcaster broadcaster;
-        broadcaster.sendTransform(
-        tf::StampedTransform(final_Ltransform,ros::Time::now(),
-        "map", "left_search"));
-
-        //right_search
-        tf::Vector3 rightT(0.0, -1.7, 0.0);
-        tf::Transform rightTransform(tf::Quaternion(0.0, 0.0, 0.0) ,rightT);
-        final_Rtransform = poseTransform * rightTransform;
-
-        tf::TransformBroadcaster broadcaster1;
-        broadcaster1.sendTransform(
-        tf::StampedTransform(final_Rtransform,ros::Time::now(),
-        "map", "right_search"));
-
-        //leftleft_search
-        tf::Vector3 leftleftT(0.0, (1.7+3.4), 0.0);
-        tf::Transform leftleftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,leftleftT);
-        final_LLtransform = poseTransform * leftleftTransform;
-
-        tf::TransformBroadcaster broadcaster2;
-        broadcaster.sendTransform(
-        tf::StampedTransform(final_LLtransform,ros::Time::now(),
-        "map", "leftleft_search"));
-
-        //rightright_search
-        tf::Vector3 rightrightT(0.0, (-1.7-3.4), 0.0);
-        tf::Transform rightrightTransform(tf::Quaternion(0.0, 0.0, 0.0) ,rightrightT);
-        final_RRtransform = poseTransform * rightrightTransform;
-
-        tf::TransformBroadcaster broadcaster3;
-        broadcaster1.sendTransform(
-        tf::StampedTransform(final_RRtransform,ros::Time::now(),
-        "map", "rightright_search"));
-
-
-
-    cp.searchPoint[0].x = ndt_pose.front().position.x;
-    cp.searchPoint[0].y = ndt_pose.front().position.y;
-    cp.searchPoint[0].z = ndt_pose.front().position.z;
-    cp.searchPoint[1].x = final_Ltransform.getOrigin().getX();
-    cp.searchPoint[1].y = final_Ltransform.getOrigin().getY();
-    cp.searchPoint[1].z = final_Ltransform.getOrigin().getZ();
-    cp.searchPoint[2].x = final_Rtransform.getOrigin().getX();
-    cp.searchPoint[2].y = final_Rtransform.getOrigin().getY();
-    cp.searchPoint[2].z = final_Rtransform.getOrigin().getZ();
-    cp.searchPoint[3].x = final_LLtransform.getOrigin().getX();
-    cp.searchPoint[3].y = final_LLtransform.getOrigin().getY();
-    cp.searchPoint[3].z = final_LLtransform.getOrigin().getZ();
-    cp.searchPoint[4].x = final_RRtransform.getOrigin().getX();
-    cp.searchPoint[4].y = final_RRtransform.getOrigin().getY();
-    cp.searchPoint[4].z = final_RRtransform.getOrigin().getZ();
-    
-    ndt_pose.pop();
-
-    std::cout << "search num -> "<< i << std::endl;
-    std::cout << "center point -> "<< i << std::endl;
-    std::cout << cp.searchPoint[0].x << "  "
-              << cp.searchPoint[0].y << "  "
-              << cp.searchPoint[0].z << " end \n";
-    std::cout << "right point -> "<< i << std::endl;
-    std::cout << cp.searchPoint[2].x << "  "
-              << cp.searchPoint[2].y << "  "
-              << cp.searchPoint[2].z << " end \n";    
-    i++;
+            return yaw_diff;
+    }
+    void LaneExtractor::setSearchPoint(const tf::Transform &tr,const int &line)
+    {
+        cp.searchPoint[line].x = tr.getOrigin().getX();
+        cp.searchPoint[line].y = tr.getOrigin().getY();
+        cp.searchPoint[line].z = tr.getOrigin().getZ();
     }
 
-    void LaneExtractor::tfTransform(const geometry_msgs::PoseStampedConstPtr& ptr)
+    void LaneExtractor::tfBroadcaster(const tf::Transform &transform,const std::string &from_link,const std::string &to_link)
     {
-    geometry_msgs::PointStamped laser_point;
-    laser_point.header.frame_id = "pose_link";
-    //we'll just use the most recent transform available
-    laser_point.header.stamp = ros::Time();
-    laser_point.point.x = ptr->pose.position.x;
-    laser_point.point.y = ptr->pose.position.y;
-    laser_point.point.z = ptr->pose.position.z;
+            tf::TransformBroadcaster broadcaster;
 
-    tf::Vector3 poseT(laser_point.point.x, laser_point.point.y, laser_point.point.z);
-    tf::Quaternion poseQ(ptr->pose.orientation.x, ptr->pose.orientation.y, ptr->pose.orientation.z, ptr->pose.orientation.w);
-    tf::Transform poseTransform(poseQ,poseT);
-
-    tf::TransformBroadcaster broadcaster;
-    broadcaster.sendTransform(
-       tf::StampedTransform(poseTransform,ros::Time::now(),
-       "map", "pose_link"));
-    
-
-    // LEFT LINK TRANSFORM
-    tf::Vector3 leftT(0.0, -1.8, 0.0);
-    tf::Transform leftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,leftT);
-    leftTransform = poseTransform * leftTransform;
-    tf::TransformBroadcaster broadcaster1;
-    broadcaster1.sendTransform(
-       tf::StampedTransform(leftTransform,ros::Time::now(),
-       "map", "left_link"));
-
-    // RIGHT LINK TRANSFORM
-    tf::Vector3 rightT(0.0, 1.8, 0.0);
-    tf::Transform rightTransform(tf::Quaternion(0.0, 0.0, 0.0) ,rightT);
-    rightTransform = poseTransform * rightTransform;
-    tf::TransformBroadcaster broadcaster2;
-    broadcaster2.sendTransform(
-        tf::StampedTransform(rightTransform,ros::Time::now(),
-        "map", "right_link"));
-
-      ROS_INFO("tfTransform_success..");
+            broadcaster.sendTransform(
+            tf::StampedTransform(transform,ros::Time::now(),
+            from_link, to_link));
     }
 
     double LaneExtractor::ToEulerAngles(tf::Quaternion q)

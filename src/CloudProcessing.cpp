@@ -62,6 +62,7 @@ namespace lane_extractor
             //   }
             //   ROS_INFO("downsampling Complete!");
     }
+    
     void CloudProcessing::fromMsgToCloud(const sensor_msgs::PointCloud2 &msg){
         sensor_msgs::PointCloud2 c_msg = msg;
         c_msg.fields[3].name = "intensity";
