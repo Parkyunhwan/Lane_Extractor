@@ -15,7 +15,9 @@ namespace lane_extractor
     LaneExtractor::LaneExtractor()
     {
        ros::NodeHandle nh;
-       std::cout << "aa" << std::endl;
+       L_lane_break=3;
+       R_lane_break=3;
+       continuos_line=0;
     }
     LaneExtractor::~LaneExtractor()
     {}
@@ -93,6 +95,7 @@ namespace lane_extractor
     bool LaneExtractor::FindLaneService(lane_extractor::srvinfo::Request  &req,
                                         lane_extractor::srvinfo::Response &res)
     {
+        
         cp.searchinfo.radius = req.rad;
         cp.searchinfo.min_intensity = req.minIntensity;
         cp.searchinfo.max_intensity = req.maxIntensity;
@@ -106,52 +109,99 @@ namespace lane_extractor
             cp.lane_publish();
             cp.cloud_filtered_publish();
         }
+            //     static std::vector<pcl::PointXYZI> Multi_left_point; empty rjatkaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            // static std::vector<pcl::PointXYZI> Multi_right_point; 
         std::cout << "Ridius Search Finish..<Put New Pose Data> "<< std::endl;
         return true;
     }
 
     void LaneExtractor::RadiusSearch(int SearchLine)
     {     
+            static std::vector<pcl::PointXYZI> Multi_left_point;
+            static std::vector<pcl::PointXYZI> Multi_right_point; 
             std::vector<pcl::PointXYZI> s_point;
             int chance=4;
-            float z=0.1;
+            float z=0.3;
             pcl::PointXYZI cetroidpoint;
             if(rotation_direction==LEFT||rotation_direction==RIGHT){
-                chance = 20;
-                z=1.0;
+                chance = 6;
+                z=0.3;
                 cp.searchinfo.radius = cp.searchinfo.radius + 0.4f;
                 cp.searchinfo.min_intensity = cp.searchinfo.min_intensity+150;
             }
             int size = lineRadiusSearch(cetroidpoint,s_point,SearchLine);
-                if( size > 0 )
+            if( size > 0 )
+            {
+                if(SearchLine==MULTILEFT || SearchLine==MULTIRIGHT)
                 {
-                    if(SearchLine==3 || SearchLine==4){
+                    if(size <= 3){ s_point.clear() , chance = 0; }                             //Under 3 point remove;
                         while(!s_point.empty()){
                             Eigen::Vector2f poseP(cetroidpoint.x, cetroidpoint.y);
                             pcl::PointXYZI target_p = s_point.back();
                             s_point.pop_back();
                             Eigen::Vector2f targetP(target_p.x, target_p.y);
                             double distance = getPointToDistance(poseP, tan_yaw, targetP);
-                            if(distance>0.2f) chance--;
+                            if(distance>0.25f) chance--;
                             if(chance==0) break;
-
                         }
                         s_point.clear();
-                }
-            if(chance!=0)
-                cp.Intesity_Cloud->points.push_back(cetroidpoint);
-                if( (SearchLine==3 || SearchLine==4) && (chance!=0) && ((size <= 2) ||  fabs(cetroidpoint.z-save_point.z) > z ) )// || fabs(point.z-save_point.z) > 0.1
-                    cp.Intesity_Cloud->points.pop_back();
-                        //std::cout << "---centroid point---   "<< point << std::endl;
-                    //std::cout << "---search size---   "<< pointIdxRadiusSearch.size() << std::endl << std::endl;
-                    save_point = cetroidpoint;
-                }
-            cp.searchinfo.radius = 0.6;
-            cp.searchinfo.min_intensity = 430;
-            cp.searchinfo.max_intensity = 1700;
-               
-    }
 
+                    if(chance != 0 && ( fabs(cetroidpoint.z-save_point.z) > z)){ // pass -> extract
+                        if(SearchLine==MULTILEFT) {
+                            Multi_left_point.push_back(cetroidpoint);        //just save Multi lnae
+                            if( Multi_left_point.size()==15){
+                                while(!Multi_left_point.empty()){
+                                    cp.Intesity_Cloud->points.push_back(Multi_left_point.back());
+                                    Multi_left_point.pop_back();
+                                }
+                            }
+                        }
+                        else if(SearchLine==MULTIRIGHT) {
+                            Multi_right_point.push_back(cetroidpoint); //just save Multi lnae
+                            if( Multi_right_point.size()==10){
+                                while(!Multi_right_point.empty()){
+                                    cp.Intesity_Cloud->points.push_back(Multi_right_point.back());
+                                    Multi_right_point.pop_back();
+                                }
+                            }
+                        }
+                        continuos_line = 1; // continuous multiline
+                    }
+                    else if(continuos_line == 1){ // extract type change
+                        if(SearchLine==MULTILEFT) {
+                            L_lane_break--;
+                            if(L_lane_break==0){
+                                Multi_left_point.clear();
+                                L_lane_break=3;
+                            }
+                        }
+                        else if(SearchLine==MULTIRIGHT) {
+                            R_lane_break--;
+                            if(L_lane_break==0){
+                                Multi_right_point.clear();
+                                R_lane_break=3;
+                            }
+                        }
+                        continuos_line = 0; // non-continuous multiline
+                    }
+                }
+                else{ 
+                    cp.Intesity_Cloud->points.push_back(cetroidpoint);
+                }
+            }
+            // if(chance!=0)
+            //     cp.Intesity_Cloud->points.push_back(cetroidpoint);
+            //     if( (SearchLine==MULTILEFT || SearchLine==MULTIRIGHT) && (chance!=0) && ( fabs(cetroidpoint.z-save_point.z) > z ) )// || fabs(point.z-save_point.z) > 0.1
+            //         cp.Intesity_Cloud->points.pop_back();
+ 
+            //         save_point = cetroidpoint;
+            // }
+                cp.searchinfo.radius = 0.6;
+                cp.searchinfo.min_intensity = 430;
+                cp.searchinfo.max_intensity = 1700;
+    }
+                       //std::cout << "---centroid point---   "<< point << std::endl;
+                    //std::cout << "---search size---   "<< pointIdxRadiusSearch.size() << std::endl << std::endl;
     int LaneExtractor::lineRadiusSearch(pcl::PointXYZI &centerpoint,std::vector<pcl::PointXYZI> &s_point,int SearchLine){
         pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
         std::vector<int> pointIdxRadiusSearch;
@@ -193,7 +243,7 @@ namespace lane_extractor
         if(i>0)
         {
             double yaw_diff=calDiffbtQuarternion(poseQ,last_pose.getRotation(),rotation_direction);
-            if(yaw_diff > 2.0)  tfBroadcaster(poseTransform,"map","Angle");
+            if(yaw_diff > 3.0)  tfBroadcaster(poseTransform,"map","Angle");
             else rotation_direction=CENTER;
 
             std::cout << "yaw_diff : " << yaw_diff << std::endl;

@@ -43,6 +43,9 @@ class LaneExtractor
         std::queue<geometry_msgs::Pose> ndt_pose;
         int rotation_direction;
         double tan_yaw;
+        int L_lane_break;
+        int R_lane_break;
+        int continuos_line;
         pcl::PointXYZI save_point;
 };
 

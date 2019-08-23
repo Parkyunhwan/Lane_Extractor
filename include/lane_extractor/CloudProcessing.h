@@ -39,6 +39,7 @@ namespace lane_extractor
             std::string file_path;
             SearchInfo searchinfo;
             pcl::PointXYZI searchPoint[5];
+            //pcl::PointXYZI CurrentPointBox[5];
 
         public:
             CloudProcessing();
