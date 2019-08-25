@@ -45,7 +45,8 @@ class LaneExtractor
         double tan_yaw;
         int L_lane_break;
         int R_lane_break;
-        int continuos_line;
+        int L_continuos_line;
+        int R_continuos_line;
         pcl::PointXYZI save_point;
 };
 

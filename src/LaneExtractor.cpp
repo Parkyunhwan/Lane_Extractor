@@ -17,7 +17,8 @@ namespace lane_extractor
        ros::NodeHandle nh;
        L_lane_break=3;
        R_lane_break=3;
-       continuos_line=0;
+       L_continuos_line=0;
+       R_continuos_line=0;
     }
     LaneExtractor::~LaneExtractor()
     {}
@@ -120,12 +121,14 @@ namespace lane_extractor
             static std::vector<pcl::PointXYZI> Multi_left_point;
             static std::vector<pcl::PointXYZI> Multi_right_point; 
             std::vector<pcl::PointXYZI> s_point;
-            int chance=4;
+            int chance=5;
             float z=0.3;
             pcl::PointXYZI cetroidpoint;
             if(rotation_direction==LEFT||rotation_direction==RIGHT){
                 chance = 6;
                 z=0.3;
+                 L_lane_break=3;
+                 R_lane_break=3;
                 cp.searchinfo.radius = cp.searchinfo.radius + 0.4f;
                 cp.searchinfo.min_intensity = cp.searchinfo.min_intensity+150;
             }
@@ -141,7 +144,7 @@ namespace lane_extractor
                             s_point.pop_back();
                             Eigen::Vector2f targetP(target_p.x, target_p.y);
                             double distance = getPointToDistance(poseP, tan_yaw, targetP);
-                            if(distance>0.25f) chance--;
+                            if(distance>0.30f) chance--;
                             if(chance==0) break;
                         }
                         s_point.clear();
@@ -149,40 +152,61 @@ namespace lane_extractor
                     if(chance != 0 && ( fabs(cetroidpoint.z-save_point.z) > z)){ // pass -> extract
                         if(SearchLine==MULTILEFT) {
                             Multi_left_point.push_back(cetroidpoint);        //just save Multi lnae
-                            if( Multi_left_point.size()==15){
+                            cp.cloud_filtered->points.push_back(cetroidpoint);
+                            // if( Multi_left_point.size()==10){
+                            //     while(!Multi_left_point.empty()){
+                            //         cp.Intesity_Cloud->points.push_back(Multi_left_point.back());
+                            //         Multi_left_point.pop_back();
+                            //     }
+                            //     L_lane_break=3;
+                            // }
+                            L_continuos_line = 1; // continuous multiline
+                        }
+                        else if(SearchLine==MULTIRIGHT) {
+                            Multi_right_point.push_back(cetroidpoint); //just save Multi lnae
+                            cp.cloud_filtered->points.push_back(cetroidpoint);
+                            // if( Multi_right_point.size()==10){
+                            //     while(!Multi_right_point.empty()){
+                            //         cp.Intesity_Cloud->points.push_back(Multi_right_point.back());
+                            //         Multi_right_point.pop_back();
+                            //     }
+                            //     R_lane_break=3;
+                            // }
+                            R_continuos_line = 1; // continuous multiline
+                        }
+                    }
+                    else if(L_continuos_line == 1 || R_continuos_line==1){ // extract type change
+                        if(SearchLine==MULTILEFT) {
+                            L_lane_break--;
+                            if( Multi_left_point.size()>=8){
                                 while(!Multi_left_point.empty()){
                                     cp.Intesity_Cloud->points.push_back(Multi_left_point.back());
                                     Multi_left_point.pop_back();
                                 }
+                                L_lane_break=3;
                             }
+                            else if(L_lane_break==0){
+                                Multi_left_point.clear();
+                                L_lane_break=3;
+                            }
+                            L_continuos_line = 0; // non-continuous multiline
                         }
                         else if(SearchLine==MULTIRIGHT) {
-                            Multi_right_point.push_back(cetroidpoint); //just save Multi lnae
-                            if( Multi_right_point.size()==10){
+                            R_lane_break--;
+                            if( Multi_right_point.size()>=8){
                                 while(!Multi_right_point.empty()){
                                     cp.Intesity_Cloud->points.push_back(Multi_right_point.back());
                                     Multi_right_point.pop_back();
                                 }
+                                R_lane_break=3;
                             }
-                        }
-                        continuos_line = 1; // continuous multiline
-                    }
-                    else if(continuos_line == 1){ // extract type change
-                        if(SearchLine==MULTILEFT) {
-                            L_lane_break--;
-                            if(L_lane_break==0){
-                                Multi_left_point.clear();
-                                L_lane_break=3;
-                            }
-                        }
-                        else if(SearchLine==MULTIRIGHT) {
-                            R_lane_break--;
-                            if(L_lane_break==0){
+                            else if(R_lane_break==0){
                                 Multi_right_point.clear();
                                 R_lane_break=3;
                             }
+                            R_continuos_line = 0; // non-continuous multiline
                         }
-                        continuos_line = 0; // non-continuous multiline
+                        
                     }
                 }
                 else{ 
@@ -215,7 +239,7 @@ namespace lane_extractor
                        {
                            if((cp.cloud->points[pointIdxRadiusSearch[i]].intensity > cp.searchinfo.min_intensity) )//&& (cp.cloud->points[pointIdxRadiusSearch[i]].intensity < cp.searchinfo.max_intensity)
                               {
-                                 cp.cloud_filtered->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
+                                //  cp.cloud_filtered->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
                                  centroidpoint.add(cp.cloud->points[ pointIdxRadiusSearch[i]]);
                                  s_point.push_back(cp.cloud->points[ pointIdxRadiusSearch[i]]);
                               }  
