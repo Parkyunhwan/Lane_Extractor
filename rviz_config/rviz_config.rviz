@@ -37,7 +37,7 @@ Visualization Manager:
       Cell Size: 1.60000002
       Class: rviz/Grid
       Color: 160; 160; 164
-      Enabled: true
+      Enabled: false
       Line Style:
         Line Width: 0.0299999993
         Value: Lines
@@ -50,7 +50,7 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 10000
       Reference Frame: <Fixed Frame>
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -128,7 +128,7 @@ Visualization Manager:
       Max Color: 255; 255; 255
       Max Intensity: 1701
       Min Color: 0; 0; 0
-      Min Intensity: 580.006165
+      Min Intensity: 450.000031
       Name: PointCloud2
       Position Transformer: XYZ
       Queue Size: 10
@@ -146,51 +146,13 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        Angle:
-          Value: true
-        Multileft_search:
-          Value: true
-        Multiright_search:
-          Value: true
-        center_search:
-          Value: true
-        left_link:
-          Value: true
-        left_search:
-          Value: true
-        map:
-          Value: true
-        pose_link:
-          Value: true
-        right_link:
-          Value: true
-        right_search:
-          Value: true
       Marker Scale: 2
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          Angle:
-            {}
-          Multileft_search:
-            {}
-          Multiright_search:
-            {}
-          center_search:
-            {}
-          left_link:
-            {}
-          left_search:
-            {}
-          pose_link:
-            {}
-          right_link:
-            {}
-          right_search:
-            {}
+        {}
       Update Interval: 0
       Value: true
   Enabled: true
@@ -217,7 +179,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: 1.73999941
+      Angle: 1.55499959
       Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
@@ -227,11 +189,11 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Scale: 9.8404932
+      Scale: 2.4117167
       Target Frame: map
       Value: TopDownOrtho (rviz)
-      X: -53.2465019
-      Y: -115.286629
+      X: -191.412521
+      Y: -66.6519089
     Saved: ~
 Window Geometry:
   Displays:
@@ -250,4 +212,4 @@ Window Geometry:
     collapsed: false
   Width: 1200
   X: 206
-  Y: 24
+  Y: 31

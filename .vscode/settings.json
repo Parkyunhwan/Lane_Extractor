@@ -42,6 +42,8 @@
         "typeinfo": "cpp",
         "utility": "cpp",
         "csignal": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "list": "cpp",
+        "string": "cpp"
     }
 }

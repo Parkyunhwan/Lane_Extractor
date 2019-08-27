@@ -85,10 +85,7 @@ namespace lane_extractor
         searchPoint.y = ndt_pose.back().position.y;
         searchPoint.z = ndt_pose.back().position.z;
 
-    //std::cout << "search num -> "<< i << endl;
-        std::cout << searchPoint.x << "  "
-         << searchPoint.y << "  "
-         << searchPoint.z << " end \n";
+        std::cout << "[SEARCH Q]" << i << std::endl;
         }
         i++;
     }
@@ -100,13 +97,33 @@ namespace lane_extractor
         cp.searchinfo.radius = req.rad;
         cp.searchinfo.min_intensity = req.minIntensity;
         cp.searchinfo.max_intensity = req.maxIntensity;
+        tf::Transform poseTransform;
+        pcl::PointXYZI lane_position;
         /////////////////////////////////search
         while(!ndt_pose.empty()){
-            setSearchEv(); // search point
-            RadiusSearch(LEFT);
-            RadiusSearch(RIGHT);
-            RadiusSearch(MULTILEFT);
-            RadiusSearch(MULTIRIGHT);
+            poseTransform=setSearchEv(); // search point
+            int left = RadiusSearch(LEFT, req.rad);
+            int right= RadiusSearch(RIGHT, req.rad);
+            if(left && !right){
+                tf::Transform final_Ltransform;
+                tf::Transform leftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, -1.7, 0.0));
+                final_Ltransform = poseTransform * leftTransform;
+                lane_position.x = final_Ltransform.getOrigin().getX();
+                lane_position.y = final_Ltransform.getOrigin().getY();
+                lane_position.z = final_Ltransform.getOrigin().getZ();
+                cp.Intesity_Cloud->points.push_back(lane_position);
+            }
+            else if(right && !left){
+                tf::Transform final_Rtransform;
+                tf::Transform rightTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, 1.7, 0.0));
+                final_Rtransform = poseTransform * rightTransform;
+                lane_position.x = final_Rtransform.getOrigin().getX();
+                lane_position.y = final_Rtransform.getOrigin().getY();
+                lane_position.z = final_Rtransform.getOrigin().getZ();
+                cp.Intesity_Cloud->points.push_back(lane_position);
+            }
+            RadiusSearch(MULTILEFT, req.rad);
+            RadiusSearch(MULTIRIGHT, req.rad);
             cp.lane_publish();
             cp.cloud_filtered_publish();
         }
@@ -116,28 +133,32 @@ namespace lane_extractor
         return true;
     }
 
-    void LaneExtractor::RadiusSearch(int SearchLine)
+    int LaneExtractor::RadiusSearch(int SearchLine,float rad)
     {     
-            static std::vector<pcl::PointXYZI> Multi_left_point;
-            static std::vector<pcl::PointXYZI> Multi_right_point; 
+
+            static std::vector<pcl::PointXYZI> Multi_left_point;   //Multi left  point candidate group
+            static std::vector<pcl::PointXYZI> Multi_right_point;  //Multi right point candidate group
             std::vector<pcl::PointXYZI> s_point;
+            pcl::PointXYZI cetroidpoint;
             int chance=5;
             float z=0.3;
-            pcl::PointXYZI cetroidpoint;
+            cp.searchinfo.radius = rad;
+
             if(rotation_direction==LEFT||rotation_direction==RIGHT){
-                chance = 6;
-                z=0.3;
-                 L_lane_break=3;
-                 R_lane_break=3;
+                L_lane_break=3;
+                R_lane_break=3;
                 cp.searchinfo.radius = cp.searchinfo.radius + 0.4f;
-                cp.searchinfo.min_intensity = cp.searchinfo.min_intensity+150;
+                // cp.searchinfo.min_intensity = cp.searchinfo.min_intensity+change; intensity change
             }
+
             int size = lineRadiusSearch(cetroidpoint,s_point,SearchLine);
+
             if( size > 0 )
             {
-                if(SearchLine==MULTILEFT || SearchLine==MULTIRIGHT)
+                //Apply to Multi-Rain Only
+                if(SearchLine==MULTILEFT || SearchLine==MULTIRIGHT) 
                 {
-                    if(size <= 3){ s_point.clear() , chance = 0; }                             //Under 3 point remove;
+                    if(size <= 3){ s_point.clear() , chance = 0; }//Under 3 point remove;
                         while(!s_point.empty()){
                             Eigen::Vector2f poseP(cetroidpoint.x, cetroidpoint.y);
                             pcl::PointXYZI target_p = s_point.back();
@@ -153,25 +174,11 @@ namespace lane_extractor
                         if(SearchLine==MULTILEFT) {
                             Multi_left_point.push_back(cetroidpoint);        //just save Multi lnae
                             cp.cloud_filtered->points.push_back(cetroidpoint);
-                            // if( Multi_left_point.size()==10){
-                            //     while(!Multi_left_point.empty()){
-                            //         cp.Intesity_Cloud->points.push_back(Multi_left_point.back());
-                            //         Multi_left_point.pop_back();
-                            //     }
-                            //     L_lane_break=3;
-                            // }
                             L_continuos_line = 1; // continuous multiline
                         }
                         else if(SearchLine==MULTIRIGHT) {
                             Multi_right_point.push_back(cetroidpoint); //just save Multi lnae
                             cp.cloud_filtered->points.push_back(cetroidpoint);
-                            // if( Multi_right_point.size()==10){
-                            //     while(!Multi_right_point.empty()){
-                            //         cp.Intesity_Cloud->points.push_back(Multi_right_point.back());
-                            //         Multi_right_point.pop_back();
-                            //     }
-                            //     R_lane_break=3;
-                            // }
                             R_continuos_line = 1; // continuous multiline
                         }
                     }
@@ -208,24 +215,19 @@ namespace lane_extractor
                         }
                         
                     }
-                }
+                }//Apply to Multi-Rain Only
+
                 else{ 
-                    cp.Intesity_Cloud->points.push_back(cetroidpoint);
+                    cp.Intesity_Cloud->points.push_back(cetroidpoint); //Not Multi-lane
                 }
+
+                return SearchLine; //Return the lane number if lane found
             }
-            // if(chance!=0)
-            //     cp.Intesity_Cloud->points.push_back(cetroidpoint);
-            //     if( (SearchLine==MULTILEFT || SearchLine==MULTIRIGHT) && (chance!=0) && ( fabs(cetroidpoint.z-save_point.z) > z ) )// || fabs(point.z-save_point.z) > 0.1
-            //         cp.Intesity_Cloud->points.pop_back();
- 
-            //         save_point = cetroidpoint;
-            // }
-                cp.searchinfo.radius = 0.6;
-                cp.searchinfo.min_intensity = 430;
-                cp.searchinfo.max_intensity = 1700;
+
+            else return 0; //If you don't find the lane, return 0.
+      
     }
-                       //std::cout << "---centroid point---   "<< point << std::endl;
-                    //std::cout << "---search size---   "<< pointIdxRadiusSearch.size() << std::endl << std::endl;
+
     int LaneExtractor::lineRadiusSearch(pcl::PointXYZI &centerpoint,std::vector<pcl::PointXYZI> &s_point,int SearchLine){
         pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
         std::vector<int> pointIdxRadiusSearch;
@@ -239,12 +241,12 @@ namespace lane_extractor
                        {
                            if((cp.cloud->points[pointIdxRadiusSearch[i]].intensity > cp.searchinfo.min_intensity) )//&& (cp.cloud->points[pointIdxRadiusSearch[i]].intensity < cp.searchinfo.max_intensity)
                               {
-                                //  cp.cloud_filtered->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]);
-                                 centroidpoint.add(cp.cloud->points[ pointIdxRadiusSearch[i]]);
-                                 s_point.push_back(cp.cloud->points[ pointIdxRadiusSearch[i]]);
+                                 cp.cloud_filtered->points.push_back(cp.cloud->points[ pointIdxRadiusSearch[i] ]); //Insert all points found for debugging
+                                 centroidpoint.add(cp.cloud->points[ pointIdxRadiusSearch[i]]); //Insert all points found to obtain the center of gravity
+                                 s_point.push_back(cp.cloud->points[ pointIdxRadiusSearch[i]]); //Insert all points found for condition determination
                               }  
                        }
-                       centroidpoint.get(centerpoint);
+                       centroidpoint.get(centerpoint); //get center of gravity point;
                        return size;
                 }
                 else {
@@ -253,8 +255,8 @@ namespace lane_extractor
                 }
     }
 
-
-    void LaneExtractor::setSearchEv()
+    //Setting up your point search preferences
+    tf::Transform LaneExtractor::setSearchEv() 
     {
         static int i = 0;
         static tf::Transform last_pose;
@@ -262,12 +264,12 @@ namespace lane_extractor
         tf::Quaternion poseQ( ndt_pose.front().orientation.x, ndt_pose.front().orientation.y, ndt_pose.front().orientation.z, ndt_pose.front().orientation.w);
         tf::Transform poseTransform(poseQ,poseT);
         tfBroadcaster(poseTransform,"map","center_search");
-        
         tan_yaw = ToEulerAngles(poseQ);
-        if(i>0)
+
+        if(i>0) //Extract direction compared to previous pose
         {
-            double yaw_diff=calDiffbtQuarternion(poseQ,last_pose.getRotation(),rotation_direction);
-            if(yaw_diff > 3.0)  tfBroadcaster(poseTransform,"map","Angle");
+            double yaw_diff=calDiffbtQuarternion(poseQ,last_pose.getRotation(),rotation_direction); //Find yaw difference
+            if(yaw_diff > 2.5)  tfBroadcaster(poseTransform,"map","Angle"); //If the difference is above 2.5, acknowledge the direction.
             else rotation_direction=CENTER;
 
             std::cout << "yaw_diff : " << yaw_diff << std::endl;
@@ -278,11 +280,13 @@ namespace lane_extractor
             else if(rotation_direction==RIGHT)
             std::cout << "rotation_direction : RIGHT" << std::endl;
         }
+
         last_pose = poseTransform;
 
+        //Set the tf position that depends on the pose
         tf::Transform final_Ltransform, final_Rtransform, final_MLtransform, final_MRtransform;
         //left_search
-        tf::Transform leftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, 1.7, 0.0));
+        tf::Transform leftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, 1.7, 0.0)); //-1.7M to the left of the pose
         final_Ltransform = poseTransform * leftTransform;
         tfBroadcaster(final_Ltransform,"map","left_search");
         //right_search
@@ -297,7 +301,8 @@ namespace lane_extractor
         tf::Transform MultirightTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, (-1.7-3.4), 0.0));
         final_MRtransform = poseTransform * MultirightTransform;
         tfBroadcaster(final_MRtransform,"map","Multiright_search");
-
+        
+        //Set points in the set position
         setSearchPoint( poseTransform    ,CENTER );
         setSearchPoint( final_Ltransform ,LEFT );
         setSearchPoint( final_Rtransform ,RIGHT );
@@ -306,8 +311,10 @@ namespace lane_extractor
         
         ndt_pose.pop();
         i++;
+        return poseTransform; //return poseTransform
     }
 
+    //Compare the two quarternion values and return the yaw difference
     double LaneExtractor::calDiffbtQuarternion(const tf::Quaternion &q1,const tf::Quaternion &q2,int &rot_direction)
     {
             double yaw1 = ToEulerAngles(q1);
@@ -325,6 +332,8 @@ namespace lane_extractor
 
             return yaw_diff;
     }
+
+    //Setting up search points for each line
     void LaneExtractor::setSearchPoint(const tf::Transform &tr,const int &line)
     {
         cp.searchPoint[line].x = tr.getOrigin().getX();
@@ -332,6 +341,7 @@ namespace lane_extractor
         cp.searchPoint[line].z = tr.getOrigin().getZ();
     }
 
+    //tf Broadcaster
     void LaneExtractor::tfBroadcaster(const tf::Transform &transform,const std::string &from_link,const std::string &to_link)
     {
             tf::TransformBroadcaster broadcaster;
@@ -341,23 +351,11 @@ namespace lane_extractor
             from_link, to_link));
     }
     
+    //Convert from Quartinion to Euler Angle
     double LaneExtractor::ToEulerAngles(tf::Quaternion q)
     {
     //EulerAngles angles;
-    double yaw;
-        // roll (x-axis rotation)
-        // double sinr_cosp = +2.0 * (q.w * q.x + q.y * q.z);
-        // double cosr_cosp = +1.0 - 2.0 * (q.x * q.x + q.y * q.y);
-        // angles.roll = atan2(sinr_cosp, cosr_cosp);
-
-        // // pitch (y-axis rotation)
-        // double sinp = +2.0 * (q.w * q.y - q.z * q.x);
-        // if (fabs(sinp) >= 1)
-        //     angles.pitch = copysign(M_PI / 2, sinp); // use 90 degrees if out of range
-        // else
-        //     angles.pitch = asin(sinp);
-
-        // yaw (z-axis rotation)
+        double yaw;
         double siny_cosp = +2.0 * (q.w() * q.z() + q.x() * q.y());
         double cosy_cosp = +1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z());  
         yaw = atan2(siny_cosp, cosy_cosp);
@@ -365,7 +363,7 @@ namespace lane_extractor
     return yaw;//angles;
     }
 
-
+    //Calculate the distance from a given point to a point by drawing a line
     double LaneExtractor::getPointToDistance(const Eigen::Vector2f &poseP, const double &yaw, const Eigen::Vector2f &targetP )
     {
         Eigen::Vector3d ret_line;
@@ -373,7 +371,7 @@ namespace lane_extractor
         return getDeviation(poseP,targetP,ret_line); 
     }
 
-
+    //
     double LaneExtractor::getSlope (const double &dir_arg)
     {
     double ret_slope;
