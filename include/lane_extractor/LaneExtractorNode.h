@@ -3,13 +3,10 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <lane_extractor/LaneExtractor.h>
 #include <pcl/common/centroid.h>
-// #include <tf2_ros/transform_broadcaster.h>
+
 namespace lane_extractor
 {
-/**
- * @brief Wrapper class for FootstepPlanner, providing callbacks for
- * the node functionality.
- */
+
 class LaneExtractorNode
 {
 public:
@@ -21,12 +18,10 @@ protected:
   LaneExtractor le;
   ros::NodeHandle nh;
 
-  ros::Subscriber MapSub;
-//   ros::Subscriber leftPoseSub;
-//   ros::Subscriber rightPoseSub;
-  ros::Subscriber PoseSub;
+  ros::Subscriber MapSub;//Map Messages Subscriber
+  ros::Subscriber PoseSub;//Pose Messages Subscriber
+  ros::ServiceServer FindLaneService;//Lane find service
+  ros::ServiceServer SaveLaneService;//Lane save service
 
-  ros::ServiceServer FindLaneService;
-//   ros::ServiceServer ivFootstepPlanFeetService;
 };
 }

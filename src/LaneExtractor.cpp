@@ -1,13 +1,12 @@
 #include <lane_extractor/LaneExtractor.h>
-// #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
-#define CENTER 0
-#define LEFT 1
-#define RIGHT 2
-#define MULTILEFT 3
-#define MULTIRIGHT 4
-
+// #define CENTER 0
+// #define LEFT 1
+// #define RIGHT 2
+// #define MULTILEFT 3
+// #define MULTIRIGHT 4
+// #define LANE_BREAK_LIMIT 3
 
 
 namespace lane_extractor
@@ -15,8 +14,8 @@ namespace lane_extractor
     LaneExtractor::LaneExtractor()
     {
        ros::NodeHandle nh;
-       L_lane_break=3;
-       R_lane_break=3;
+       L_lane_break=LANE_BREAK_LIMIT;
+       R_lane_break=LANE_BREAK_LIMIT;
        L_continuos_line=0;
        R_continuos_line=0;
     }
@@ -27,8 +26,6 @@ namespace lane_extractor
     void LaneExtractor::mapCallback(const sensor_msgs::PointCloud2ConstPtr& pc)
     {
         cp.fromMsgToCloud(*pc);
-        //pcl::fromROSMsg(*pc, *cloud);
-        //cp.MapDownsampling(false); // Voxel true or false.. (param)
         cp.map_publish();
     }
 
@@ -38,8 +35,6 @@ namespace lane_extractor
         static int i=0;
         static tf2_ros::TransformBroadcaster br;
         geometry_msgs::TransformStamped transformStamped;
-        geometry_msgs::TransformStamped transformMaptoleftlink;
-        
 
         transformStamped.header.stamp = ros::Time::now();
         transformStamped.header.frame_id = "map";
@@ -74,7 +69,7 @@ namespace lane_extractor
         tf::StampedTransform(final_transform,ros::Time::now(),
         "map", "right_link"));
 
-        if(i%5==0)
+        if(i%5==0) //Save once every five times --> you can change this parameter.
         {
         geometry_msgs::Pose current_pose = ptr->pose;
         //current_pose.position.z = 0.0;
@@ -98,12 +93,33 @@ namespace lane_extractor
         cp.searchinfo.min_intensity = req.minIntensity;
         cp.searchinfo.max_intensity = req.maxIntensity;
         tf::Transform poseTransform;
-        pcl::PointXYZI lane_position;
         /////////////////////////////////search
         while(!ndt_pose.empty()){
-            poseTransform=setSearchEv(); // search point
+            poseTransform=setSearchEv(); // Env setting
             int left = RadiusSearch(LEFT, req.rad);
             int right= RadiusSearch(RIGHT, req.rad);
+            CreateSideLane(poseTransform,left, right);
+            RadiusSearch(MULTILEFT, req.rad);
+            RadiusSearch(MULTIRIGHT, req.rad);
+            cp.lane_publish();
+            cp.cloud_filtered_publish();
+        }
+        std::cout << "Ridius Search Finish..<Put New Pose Data> "<< std::endl;
+        return true;
+    }
+
+    bool LaneExtractor::SaveLaneService(lane_extractor::saveinfo::Request &req,lane_extractor::saveinfo::Response &res)
+    {
+        const char* name = req.data.c_str();
+        if(cp.CloudSaver(name))
+            std::cout << "Current Extract Lane saved!!" << std::endl;
+        else
+            std::cout << "Lane Saved failed.." << std::endl;
+    }
+
+    int LaneExtractor::CreateSideLane(tf::Transform &poseTransform,int left, int right)
+    {
+            pcl::PointXYZI lane_position;
             if(left && !right){
                 tf::Transform final_Ltransform;
                 tf::Transform leftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, -1.7, 0.0));
@@ -122,17 +138,7 @@ namespace lane_extractor
                 lane_position.z = final_Rtransform.getOrigin().getZ();
                 cp.Intesity_Cloud->points.push_back(lane_position);
             }
-            RadiusSearch(MULTILEFT, req.rad);
-            RadiusSearch(MULTIRIGHT, req.rad);
-            cp.lane_publish();
-            cp.cloud_filtered_publish();
-        }
-            //     static std::vector<pcl::PointXYZI> Multi_left_point; empty rjatkaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-            // static std::vector<pcl::PointXYZI> Multi_right_point; 
-        std::cout << "Ridius Search Finish..<Put New Pose Data> "<< std::endl;
-        return true;
     }
-
     int LaneExtractor::RadiusSearch(int SearchLine,float rad)
     {     
 
@@ -140,13 +146,13 @@ namespace lane_extractor
             static std::vector<pcl::PointXYZI> Multi_right_point;  //Multi right point candidate group
             std::vector<pcl::PointXYZI> s_point;
             pcl::PointXYZI cetroidpoint;
-            int chance=5;
-            float z=0.3;
+            int chance=5; //Number of opportunities to inspect for out of line range
+            float z=0.3; //Using the height difference of points (not useful)
             cp.searchinfo.radius = rad;
 
             if(rotation_direction==LEFT||rotation_direction==RIGHT){
-                L_lane_break=3;
-                R_lane_break=3;
+                L_lane_break=LANE_BREAK_LIMIT;
+                R_lane_break=LANE_BREAK_LIMIT;
                 cp.searchinfo.radius = cp.searchinfo.radius + 0.4f;
                 // cp.searchinfo.min_intensity = cp.searchinfo.min_intensity+change; intensity change
             }
@@ -190,11 +196,11 @@ namespace lane_extractor
                                     cp.Intesity_Cloud->points.push_back(Multi_left_point.back());
                                     Multi_left_point.pop_back();
                                 }
-                                L_lane_break=3;
+                                L_lane_break=LANE_BREAK_LIMIT;
                             }
                             else if(L_lane_break==0){
                                 Multi_left_point.clear();
-                                L_lane_break=3;
+                                L_lane_break=LANE_BREAK_LIMIT;
                             }
                             L_continuos_line = 0; // non-continuous multiline
                         }
@@ -225,15 +231,15 @@ namespace lane_extractor
             }
 
             else return 0; //If you don't find the lane, return 0.
-      
     }
 
     int LaneExtractor::lineRadiusSearch(pcl::PointXYZI &centerpoint,std::vector<pcl::PointXYZI> &s_point,int SearchLine){
-        pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
+        pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;//Set up your search tree
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
         kdtree.setInputCloud(cp.cloud);
         pcl::CentroidPoint<pcl::PointXYZI> centroidpoint;
+        //                            (   setting search_point  ), (  setting radius  ), 
         int size = kdtree.radiusSearch(cp.searchPoint[SearchLine], cp.searchinfo.radius, pointIdxRadiusSearch, pointRadiusSquaredDistance);  
                 if(size > 0)
                 {
@@ -260,11 +266,14 @@ namespace lane_extractor
     {
         static int i = 0;
         static tf::Transform last_pose;
+
+        //Pull out ndt_pose and apply poseTransform
         tf::Vector3 poseT( ndt_pose.front().position.x,  ndt_pose.front().position.y,  ndt_pose.front().position.z);
         tf::Quaternion poseQ( ndt_pose.front().orientation.x, ndt_pose.front().orientation.y, ndt_pose.front().orientation.z, ndt_pose.front().orientation.w);
         tf::Transform poseTransform(poseQ,poseT);
         tfBroadcaster(poseTransform,"map","center_search");
-        tan_yaw = ToEulerAngles(poseQ);
+
+        tan_yaw = ToEulerAngles(poseQ); //Use quarterion information to obtain yaw value
 
         if(i>0) //Extract direction compared to previous pose
         {
@@ -309,7 +318,7 @@ namespace lane_extractor
         setSearchPoint( final_MLtransform,MULTILEFT );
         setSearchPoint( final_MRtransform,MULTIRIGHT );
         
-        ndt_pose.pop();
+        ndt_pose.pop();//Delete used pose information
         i++;
         return poseTransform; //return poseTransform
     }
@@ -440,7 +449,5 @@ namespace lane_extractor
     return candidate_deviation;
     }
 
-
-    
 
 }

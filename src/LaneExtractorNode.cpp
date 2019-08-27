@@ -12,6 +12,7 @@ LaneExtractorNode::LaneExtractorNode()
 //   leftPoseSub = 
 //   // service:
   FindLaneService = nh.advertiseService("find_lane", &LaneExtractor::FindLaneService, &le);
+  SaveLaneService = nh.advertiseService("save_lane", &LaneExtractor::SaveLaneService, &le);
 //   ivFootstepPlanFeetService = nh.advertiseService("plan_footsteps_feet", &FootstepPlanner::planFeetService, &ivFootstepPlanner);
 }
 
