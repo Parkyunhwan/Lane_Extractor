@@ -30,11 +30,11 @@ namespace lane_extractor
     {
         pcl::PassThrough<pcl::PointXYZI> pass;
         pass.setInputCloud(cloud);
-        // pass.setFilterFieldName ("x");
+        // pass.setFilterFieldName ("x"); // X..
         // pass.setFilterLimits (-150.0, 150.0);
         // pass.filter(*cloud);
             
-        // pass.setFilterFieldName ("y");
+        // pass.setFilterFieldName ("y"); // Y..
         // pass.setFilterLimits (-100.0, 300.0);
         // pass.filter(*cloud);
 
@@ -55,12 +55,11 @@ namespace lane_extractor
     }
 
     void CloudProcessing::MapDownsampling(bool voxel){
-              passthrough();
-              
-            //   if(voxel){
-            //    VoxelGridFilter();
-            //   }
-            //   ROS_INFO("downsampling Complete!");
+              passthrough();         
+              if(voxel){
+               VoxelGridFilter();
+              }
+              ROS_INFO("downsampling Complete!");
     }
     void CloudProcessing::fromMsgToCloud(const sensor_msgs::PointCloud2 &msg){
         sensor_msgs::PointCloud2 c_msg = msg;
@@ -130,16 +129,25 @@ namespace lane_extractor
         marker.lifetime = ros::Duration();
         marker_pub.publish(marker);
 }
-
-
-
+    //Functions for storing found roads
     bool CloudProcessing::CloudSaver(int num)
     {
+        std::stringstream ss;
+        ss << num;
+        std::string str = ss.str();
+        char *name = new char[str.size()+1];
+        std::strcpy(name,str.c_str());
+        strcat(name,"_lane.pcd");
         pcl::PCDWriter writer;
-        if(writer.writeASCII("lane.pcd",*Intesity_Cloud))
+        Intesity_Cloud->width = Intesity_Cloud->points.size();
+        Intesity_Cloud->height = 1;
+        Intesity_Cloud->resize(Intesity_Cloud->width*Intesity_Cloud->height);
+        if(writer.writeASCII(name,*Intesity_Cloud))
             return true;
-        else
+        else{
+            Intesity_Cloud->points.clear();
             return false;
+        }
     }
 
 }

@@ -44,6 +44,14 @@
         "csignal": "cpp",
         "core": "cpp",
         "list": "cpp",
-        "string": "cpp"
+        "string": "cpp",
+        "bitset": "cpp",
+        "complex": "cpp",
+        "algorithm": "cpp",
+        "iomanip": "cpp",
+        "iostream": "cpp",
+        "memory": "cpp",
+        "numeric": "cpp",
+        "cfenv": "cpp"
     }
 }

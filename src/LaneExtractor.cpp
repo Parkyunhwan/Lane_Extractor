@@ -22,13 +22,14 @@ namespace lane_extractor
     LaneExtractor::~LaneExtractor()
     {}
     
-
+    //Subscribe the map and load it into the cloud
     void LaneExtractor::mapCallback(const sensor_msgs::PointCloud2ConstPtr& pc)
     {
         cp.fromMsgToCloud(*pc);
         cp.map_publish();
     }
 
+    //ndt_pose callback function & setting tf position
     void LaneExtractor::ndtPoseCallback(const geometry_msgs::PoseStampedConstPtr& ptr)
     {   
         std::cout << "ndt_pose subscribe.." << std::endl;
@@ -74,17 +75,13 @@ namespace lane_extractor
         geometry_msgs::Pose current_pose = ptr->pose;
         //current_pose.position.z = 0.0;
         ndt_pose.push(current_pose);
-        
-        pcl::PointXYZI searchPoint;
-        searchPoint.x = ndt_pose.back().position.x;
-        searchPoint.y = ndt_pose.back().position.y;
-        searchPoint.z = ndt_pose.back().position.z;
 
         std::cout << "[SEARCH Q]" << i << std::endl;
         }
         i++;
     }
 
+    //Find Lane service
     bool LaneExtractor::FindLaneService(lane_extractor::srvinfo::Request  &req,
                                         lane_extractor::srvinfo::Response &res)
     {
@@ -96,19 +93,20 @@ namespace lane_extractor
         /////////////////////////////////search
         while(!ndt_pose.empty()){
             poseTransform=setSearchEv(); // Env setting
-            int left = RadiusSearch(LEFT, req.rad);
+            int left = RadiusSearch(LEFT, req.rad); //Return success or not
             int right= RadiusSearch(RIGHT, req.rad);
-            CreateSideLane(poseTransform,left, right);
+            CreateSideLane(poseTransform,left, right); //Runs only if one of the two is successful.
             RadiusSearch(MULTILEFT, req.rad);
             RadiusSearch(MULTIRIGHT, req.rad);
             cp.lane_publish();
             cp.cloud_filtered_publish();
         }
-        MultiLaneBufferClear();
+        MultiLaneBufferClear(); //If ndt_pose is empty, multi-lane buffer is empty
         cp.lane_publish();
         std::cout << "Ridius Search Finish..<Put New Pose Data> "<< std::endl;
         return true;
     }
+    //If ndt_pose is empty, multi-lane buffer is empty
     void LaneExtractor::MultiLaneBufferClear()
     {
         while(!Multi_left_point.empty()){
@@ -122,11 +120,10 @@ namespace lane_extractor
         }
         R_lane_break=LANE_BREAK_LIMIT;    
     }
-
+    //save lane -> pcd file
     bool LaneExtractor::SaveLaneService(lane_extractor::lanesave::Request &req,lane_extractor::lanesave::Response &res)
     {
-        std::cout << "aaaaaaaaa";
-        if(cp.CloudSaver(req.num))
+        if(!cp.CloudSaver(req.num))
             std::cout << "Current Extract Lane saved!!" << std::endl;
         else
             std::cout << "Lane Saved failed.." << std::endl;
@@ -134,6 +131,7 @@ namespace lane_extractor
         return true;
     }
 
+    //Creates one fake point when only one of them is extracted (Multi-lane is not applicable)
     int LaneExtractor::CreateSideLane(tf::Transform &poseTransform,int left, int right)
     {
             pcl::PointXYZI lane_position;
@@ -241,17 +239,16 @@ namespace lane_extractor
                         
                     }
                 }//Apply to Multi-Rain Only
-
-                else{ 
+                else
+                {
                     cp.Intesity_Cloud->points.push_back(cetroidpoint); //Not Multi-lane
                 }
 
                 return SearchLine; //Return the lane number if lane found
             }
-
             else return 0; //If you don't find the lane, return 0.
     }
-
+    //just kdtree radius search
     int LaneExtractor::lineRadiusSearch(pcl::PointXYZI &centerpoint,std::vector<pcl::PointXYZI> &s_point,int SearchLine){
         pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;//Set up your search tree
         std::vector<int> pointIdxRadiusSearch;

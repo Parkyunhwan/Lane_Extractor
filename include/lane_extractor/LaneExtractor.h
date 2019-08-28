@@ -23,10 +23,10 @@ class LaneExtractor
     public:
         LaneExtractor(); //Constructor
         virtual ~LaneExtractor();
-        void mapCallback(const sensor_msgs::PointCloud2ConstPtr& pc);
-        void ndtPoseCallback(const geometry_msgs::PoseStampedConstPtr& pc);
-        bool FindLaneService(lane_extractor::srvinfo::Request  &req, lane_extractor::srvinfo::Response &res);
-        bool SaveLaneService(lane_extractor::lanesave::Request &req,lane_extractor::lanesave::Response &res);
+        void mapCallback(const sensor_msgs::PointCloud2ConstPtr& pc);//Subscribe the map and load it into the cloud
+        void ndtPoseCallback(const geometry_msgs::PoseStampedConstPtr& pc);//ndt_pose callback function & setting tf position
+        bool FindLaneService(lane_extractor::srvinfo::Request  &req, lane_extractor::srvinfo::Response &res);//Find Lane service
+        bool SaveLaneService(lane_extractor::lanesave::Request &req,lane_extractor::lanesave::Response &res);//save lane -> pcd file
         void tfBroadcaster(const tf::Transform &transform,const std::string &from_link,const std::string &to_link);
         int RadiusSearch(int SearchLine,float rad);
         tf::Transform setSearchEv();
@@ -55,12 +55,6 @@ class LaneExtractor
         enum { CENTER=0,LEFT=1,RIGHT=2,MULTILEFT=3,MULTIRIGHT=4,LANE_BREAK_LIMIT=3};
         std::vector<pcl::PointXYZI> Multi_left_point;   //Multi left  point candidate group
         std::vector<pcl::PointXYZI> Multi_right_point;  //Multi right point candidate group
-        // static const int CENTER =0;
-        // static const int LEFT =1;
-        // static const int RIGHT =2;
-        // static const int MULTILEFT =3;
-        // static const int MULTIRIGHT =4;
-        // static const int LANE_BREAK_LIMIT =3;
         pcl::PointXYZI save_point;
 };
 

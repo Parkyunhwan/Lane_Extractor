@@ -8,6 +8,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl_ros/io/pcd_io.h>
+#include <sstream>
 
 namespace lane_extractor
 {
@@ -21,20 +22,21 @@ namespace lane_extractor
     {
 
         public:
-            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud; 
-            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered;
-            pcl::PointCloud<pcl::PointXYZI>::Ptr Intesity_Cloud;
-            std::string file_path;
-            SearchInfo searchinfo;
-            pcl::PointXYZI searchPoint[5];
-            CloudProcessing();
+            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud; //Cloud with source map
+            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered; //Points before center of gravity processing for debugging
+            pcl::PointCloud<pcl::PointXYZI>::Ptr Intesity_Cloud; //lane cloud
+            std::string file_path; //pcd file path
+            SearchInfo searchinfo; //radius , intensity_bound information
+            pcl::PointXYZI searchPoint[5]; // lane_search_point buffer
+
+            CloudProcessing(); 
             void CloudLoader();
             void MapDownsampling(bool voxel);
             void fromMsgToCloud(const sensor_msgs::PointCloud2 &cloud);
             void map_publish();
             void lane_publish();
             void cloud_filtered_publish();
-            void marker_publish(tf::Transform &pose);
+            void marker_publish(tf::Transform &pose); //for debugging
             bool CloudSaver(int num);
 
         private:
@@ -50,8 +52,7 @@ namespace lane_extractor
 
             ros::NodeHandle nh;
 
-            float leaf_size;
-
+            float leaf_size; //for voxel filter
     };
 
     
