@@ -19,11 +19,11 @@ find_package(catkin REQUIRED COMPONENTS
 
 add_service_files(FILES
   srvinfo.srv
-  saveinfo.srv
+  lanesave.srv
 )
 generate_messages(
    DEPENDENCIES
-   std_msgs  # Or other packages containing msgs
+   std_msgs #Or other packages containing msgs
  )
 
 catkin_package(

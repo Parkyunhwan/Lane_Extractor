@@ -104,17 +104,34 @@ namespace lane_extractor
             cp.lane_publish();
             cp.cloud_filtered_publish();
         }
+        MultiLaneBufferClear();
+        cp.lane_publish();
         std::cout << "Ridius Search Finish..<Put New Pose Data> "<< std::endl;
         return true;
     }
-
-    bool LaneExtractor::SaveLaneService(lane_extractor::saveinfo::Request &req,lane_extractor::saveinfo::Response &res)
+    void LaneExtractor::MultiLaneBufferClear()
     {
-        const char* name = req.data.c_str();
-        if(cp.CloudSaver(name))
+        while(!Multi_left_point.empty()){
+            cp.Intesity_Cloud->points.push_back(Multi_left_point.back());
+            Multi_left_point.pop_back();
+        }
+        L_lane_break=LANE_BREAK_LIMIT;
+        while(!Multi_right_point.empty()){
+            cp.Intesity_Cloud->points.push_back(Multi_right_point.back());
+            Multi_right_point.pop_back();
+        }
+        R_lane_break=LANE_BREAK_LIMIT;    
+    }
+
+    bool LaneExtractor::SaveLaneService(lane_extractor::lanesave::Request &req,lane_extractor::lanesave::Response &res)
+    {
+        std::cout << "aaaaaaaaa";
+        if(cp.CloudSaver(req.num))
             std::cout << "Current Extract Lane saved!!" << std::endl;
         else
             std::cout << "Lane Saved failed.." << std::endl;
+        
+        return true;
     }
 
     int LaneExtractor::CreateSideLane(tf::Transform &poseTransform,int left, int right)
@@ -122,8 +139,10 @@ namespace lane_extractor
             pcl::PointXYZI lane_position;
             if(left && !right){
                 tf::Transform final_Ltransform;
-                tf::Transform leftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, -1.7, 0.0));
-                final_Ltransform = poseTransform * leftTransform;
+                tf::Vector3 poseT( cp.Intesity_Cloud->points.back().x, cp.Intesity_Cloud->points.back().y, cp.Intesity_Cloud->points.back().z);
+                tf::Transform pTransform(poseTransform.getRotation(),poseT);
+                tf::Transform leftTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, -3.4, 0.0));
+                final_Ltransform = pTransform * leftTransform;
                 lane_position.x = final_Ltransform.getOrigin().getX();
                 lane_position.y = final_Ltransform.getOrigin().getY();
                 lane_position.z = final_Ltransform.getOrigin().getZ();
@@ -131,8 +150,10 @@ namespace lane_extractor
             }
             else if(right && !left){
                 tf::Transform final_Rtransform;
-                tf::Transform rightTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, 1.7, 0.0));
-                final_Rtransform = poseTransform * rightTransform;
+                tf::Vector3 poseT( cp.Intesity_Cloud->points.back().x, cp.Intesity_Cloud->points.back().y, cp.Intesity_Cloud->points.back().z);
+                tf::Transform pTransform(poseTransform.getRotation(),poseT);
+                tf::Transform rightTransform(tf::Quaternion(0.0, 0.0, 0.0) ,tf::Vector3(0.0, 3.4, 0.0));
+                final_Rtransform = pTransform * rightTransform;
                 lane_position.x = final_Rtransform.getOrigin().getX();
                 lane_position.y = final_Rtransform.getOrigin().getY();
                 lane_position.z = final_Rtransform.getOrigin().getZ();
@@ -141,9 +162,6 @@ namespace lane_extractor
     }
     int LaneExtractor::RadiusSearch(int SearchLine,float rad)
     {     
-
-            static std::vector<pcl::PointXYZI> Multi_left_point;   //Multi left  point candidate group
-            static std::vector<pcl::PointXYZI> Multi_right_point;  //Multi right point candidate group
             std::vector<pcl::PointXYZI> s_point;
             pcl::PointXYZI cetroidpoint;
             int chance=5; //Number of opportunities to inspect for out of line range
@@ -151,6 +169,7 @@ namespace lane_extractor
             cp.searchinfo.radius = rad;
 
             if(rotation_direction==LEFT||rotation_direction==RIGHT){
+                int chance=6;
                 L_lane_break=LANE_BREAK_LIMIT;
                 R_lane_break=LANE_BREAK_LIMIT;
                 cp.searchinfo.radius = cp.searchinfo.radius + 0.4f;
@@ -171,7 +190,7 @@ namespace lane_extractor
                             s_point.pop_back();
                             Eigen::Vector2f targetP(target_p.x, target_p.y);
                             double distance = getPointToDistance(poseP, tan_yaw, targetP);
-                            if(distance>0.30f) chance--;
+                            if(distance>0.26f) chance--;
                             if(chance==0) break;
                         }
                         s_point.clear();
@@ -211,11 +230,11 @@ namespace lane_extractor
                                     cp.Intesity_Cloud->points.push_back(Multi_right_point.back());
                                     Multi_right_point.pop_back();
                                 }
-                                R_lane_break=3;
+                                R_lane_break=LANE_BREAK_LIMIT;
                             }
                             else if(R_lane_break==0){
                                 Multi_right_point.clear();
-                                R_lane_break=3;
+                                R_lane_break=LANE_BREAK_LIMIT;
                             }
                             R_continuos_line = 0; // non-continuous multiline
                         }
@@ -256,7 +275,7 @@ namespace lane_extractor
                        return size;
                 }
                 else {
-                    ROS_INFO("No point could be found..");
+                    //ROS_INFO("No point could be found.."); //TOO NOISY INFO
                     return 0;
                 }
     }
@@ -278,7 +297,7 @@ namespace lane_extractor
         if(i>0) //Extract direction compared to previous pose
         {
             double yaw_diff=calDiffbtQuarternion(poseQ,last_pose.getRotation(),rotation_direction); //Find yaw difference
-            if(yaw_diff > 2.5)  tfBroadcaster(poseTransform,"map","Angle"); //If the difference is above 2.5, acknowledge the direction.
+            if(yaw_diff > 3.0)  tfBroadcaster(poseTransform,"map","Angle"); //If the difference is above 2.5, acknowledge the direction.
             else rotation_direction=CENTER;
 
             std::cout << "yaw_diff : " << yaw_diff << std::endl;

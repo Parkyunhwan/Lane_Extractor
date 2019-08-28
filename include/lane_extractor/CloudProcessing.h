@@ -35,7 +35,7 @@ namespace lane_extractor
             void lane_publish();
             void cloud_filtered_publish();
             void marker_publish(tf::Transform &pose);
-            bool CloudSaver(const char* name);
+            bool CloudSaver(int num);
 
         private:
             void passthrough();

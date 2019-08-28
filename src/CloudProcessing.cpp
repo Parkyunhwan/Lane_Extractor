@@ -133,13 +133,10 @@ namespace lane_extractor
 
 
 
-    bool CloudProcessing::CloudSaver(const char* name)
+    bool CloudProcessing::CloudSaver(int num)
     {
-        char* name_copy;
-        strncpy( name_copy, name, sizeof(name) );
-        strcat(name_copy,".pcd");
         pcl::PCDWriter writer;
-        if(writer.writeBinaryCompressed(name,*cloud))
+        if(writer.writeASCII("lane.pcd",*Intesity_Cloud))
             return true;
         else
             return false;
