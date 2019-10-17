@@ -1,4 +1,6 @@
-# Lane_Extractor
+Lane_Extractor
+======================
+
 Point Cloud -> extract -> Vector_lane
 
 ## Preparations
@@ -7,33 +9,55 @@ Available in environments with [PCL & ROS kinetic] installed.
 > <http://www.pointclouds.org/downloads/linux.html> [PCL download] \
 > <http://wiki.ros.org/kinetic/Installation/Debian> [ROS kinetic download]
 
-## Map processing
+### Map processing
 
- $ rosrun lane_extractor intensity_cloud_saver [Original pcd file path] [Intensity Processing pcd file name] [min_intensity] 
- > (You can set the desired coefficients)
-> ex) $rosrun lane_extractor intensity_cloud_saver [Original pcd file path] test_450.pcd 450  (Create a pcd file that leaves only values greater than 450.)
 
-	$ sudo apt-get install git cmake libjpeg8-dev imagemagick libv4l-dev subversion -y
+	$ rosrun lane_extractor intensity_cloud_saver [Original pcd file path] [Intensity Processing pcd file name] [min_intensity]  
+You can set the desired intensity coefficients.  
+If you put 450 in [min_intensity], create a pcd file, leaving only the point with an intensity value of 450 or more.  
+Search speed is extremely fast when processing applying.  
 
-빌드에 필요한 videodev.h 파일이 없으므로 videodev2.h 파일로 연결
 
-	$ sudo ln -s /usr/include/linux/videodev2.h /usr/include/linux/videodev.h
+### visual debugging
 
-소스 다운로드(repo안에도 있음.)
 
-	$ wget http://sourceforge.net/code-snapshots/svn/m/mj/mjpg-streamer/code/mjpg-streamer-code-182.zip
+Run rviz and open the conforming file stored in the rviz folder in the Lane_extractor package.
 
-압축 해제
 
-	$ unzip mjpg-streamer-code-182.zip
+## Run
+### 1. run lane_extractor_node
 
-빌드
+**There are two ways to run the Lane Extractor.**
 
-	$ cd mjpg-streamer-code-182/mjpg-streamer
-	$ make mjpg_streamer input_file.so output_http.so
+*First,*
 
-인스톨
+	$ rosrun lane_extractor lane_extractor_node  
+  > Running without giving a argument behind it will be executed by loading the pcd file in the path set to Default in the code.
+	
+*Second,*
 
-	$ sudo cp mjpg_streamer /usr/local/bin
-	$ sudo cp output_http.so input_file.so /usr/local/lib/
-	$ sudo cp -R www /usr/local/www
+	$ rosrun lane_extractor lane_extractor_nod [pcd file path]  
+  > When you pass the path of a pcd file to a factor, you use a pcd file that is passed to a factor.
+
+### 2. run rosbag file
+	$ rosbag play [ndt_pose path] or  
+	$ rosbag play -r [speed rate]  [ndt_pose path] 
+
+When you run the command, the line_extractor node receives the message ndt_pose and saves it to the queue.
+
+### 3. run /find_lane rosservice to get lane point
+*User can set a value.*  
+	$ rosservice call /find_lane "rad: [value] minIntensity: [value] maxIntensity: [value]" 
+If you have run all of the robag files, use the ros service to have the lane_extractor node find lane.
+
+### 4. run /save_lane rosservice to get pcd files
+
+	$ rosservice call /save_lane "num : [int]" 실행
+Save the line points found so far to a file.
+(File saved in the location of the line_extractor node.)
+
+## Contact
+If you interested in my project.
+Send me an email.
+
+Thanks!
