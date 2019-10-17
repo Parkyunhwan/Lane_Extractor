@@ -1,6 +1,8 @@
 Lane_Extractor
 ======================
 
+A Project to extract a lane from the pointcloud map and save it back as a pcd file.
+-----------------------------------
 Point Cloud -> extract -> Vector_lane
 
 ## Preparations
