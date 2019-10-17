@@ -50,7 +50,8 @@ Run rviz and open the conforming file stored in the rviz folder in the Lane_extr
 When you run the command, the line_extractor node receives the message ndt_pose and saves it to the queue.
 
 ### 3. run /find_lane rosservice to get lane point
-*User can set a value.*  
+*User can set a value.*
+
 	$ rosservice call /find_lane "rad: [value] minIntensity: [value] maxIntensity: [value]" 
 If you have run all of the robag files, use the ros service to have the lane_extractor node find lane.
 
