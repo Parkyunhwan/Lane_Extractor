@@ -4,7 +4,7 @@ Point Cloud -> extract -> Vector_lane
 ## Preparations
 Available in environments with [PCL & ROS kinetic] installed.
 
-<http://www.pointclouds.org/downloads/linux.html> [PCL download]
+<http://www.pointclouds.org/downloads/linux.html> [PCL download] \
 <http://wiki.ros.org/kinetic/Installation/Debian> [ROS kinetic download]
 
 ##Map processing
