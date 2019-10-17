@@ -18,10 +18,12 @@ If you put 450 in [min_intensity], create a pcd file, leaving only the point wit
 Search speed is extremely fast when processing applying.  
 
 
-### visual debugging
+### Visual debugging
 
 
 Run rviz and open the conforming file stored in the rviz folder in the Lane_extractor package.
+
+
 
 
 ## Run
