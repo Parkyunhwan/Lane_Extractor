@@ -58,8 +58,8 @@ If you have run all of the robag files, use the ros service to have the lane_ext
 ### 4. run /save_lane rosservice to get pcd files
 
 	$ rosservice call /save_lane "num : [int]" 실행
-Save the line points found so far to a file.
-(File saved in the location of the line_extractor node.)
+Save the lane points found so far to a file.
+(File saved in the location of the lane_extractor node.)
 
 ## Contact
 If you interested in my project.
