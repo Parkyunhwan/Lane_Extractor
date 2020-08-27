@@ -5,6 +5,16 @@ A Project to extract a lane from the pointcloud map and save it back as a pcd fi
 -----------------------------------
 Point Cloud -> extract -> Vector_lane
 
+## Execution screen
+
+![lane_extractor_1](https://user-images.githubusercontent.com/47476276/91465844-44e2b480-e8c9-11ea-9e56-9750e2de484e.gif)
+
+👆 <0sec ~ 30sec>
+
+![lane_extractor_2](https://user-images.githubusercontent.com/47476276/91465906-5b890b80-e8c9-11ea-83e9-97561afca8f4.gif)
+
+👆 <30sec ~ 60sec>
+
 ## Preparations
 Available in environments with [PCL & ROS kinetic] installed.
 
